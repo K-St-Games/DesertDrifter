@@ -8,6 +8,11 @@ export class Controls {
     this.keyD = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
     this.keyW = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     this.keyS = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+    this.keyM = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
+  }
+
+  muteJustPressed() {
+    return Phaser.Input.Keyboard.JustDown(this.keyM);
   }
 
   get pointer() {

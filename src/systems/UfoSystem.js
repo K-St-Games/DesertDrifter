@@ -155,5 +155,7 @@ export class UfoSystem {
     this.sprite.setVisible(false);
     this.beam.clear();
     this.state = 'idle';
+    this.timer = 0;
+    this.nextSpawnTime = 0;
   }
 }

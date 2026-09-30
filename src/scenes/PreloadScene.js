@@ -17,7 +17,6 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('turtle', 'assets/turtle.png');
     this.load.image('tree', 'assets/tree.png');
     this.load.image('ufo', 'assets/ufo.png');
-    this.load.audio('bgm', 'assets/8bit_radio.mp3');
   }
 
   create() {

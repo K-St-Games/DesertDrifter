@@ -6,6 +6,7 @@ export class AudioManager {
     this.ufoGainNode = null;
     this.ufoLFO = null;
     this.ufoLFOGain = null;
+    this.muted = false;
   }
 
   init() {
@@ -15,6 +16,12 @@ export class AudioManager {
     }
 
     const ctx = new AudioContext();
+
+    // Browsers keep a context created before any user gesture suspended: resume it on the first input.
+    const resume = () => {
+      if (!this.muted && ctx.state === 'suspended') ctx.resume();
+    };
+    ['pointerdown', 'keydown', 'touchstart'].forEach((type) => window.addEventListener(type, resume, { passive: true }));
     this.engineSound = ctx.createOscillator();
     const gainNode = ctx.createGain();
 
@@ -125,6 +132,16 @@ export class AudioManager {
 
     osc.start();
     osc.stop(ctx.currentTime + 0.5);
+  }
+
+  // Mutes the synthesized sounds (the music is muted through scene.sound). Returns the new state.
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.engineSound) {
+      const ctx = this.engineSound.context;
+      if (this.muted) ctx.suspend(); else ctx.resume();
+    }
+    return this.muted;
   }
 
   // Restart engine sound

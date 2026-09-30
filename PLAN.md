@@ -2,7 +2,7 @@
 title: "Desert Drifter — Enhancement Plan"
 description: "Phased plan to modernize the Desert Drifter fork by porting proven parts of HiOrbit_game and HiOrbit_redux, fixing foundation issues, and rebuilding the art on a shared palette. New content is deferred."
 status: active
-status_detail: "Phase 1 in progress: PR1 (module split, Phaser 3.90.0) done on branch refactor/es-modules; next is PR2 (correctness). Phase 3 deferred by decision; shared palette locked in WP1.8"
+status_detail: "Phase 1 in progress: PR1 (module split, Phaser 3.90.0) and PR2 (correctness) done; next is the art pipeline (PR3). Phase 3 deferred by decision; shared palette locked in WP1.8"
 owner: "K_St_Games Team"
 last_updated: 2026-09-30
 kind: plan
@@ -204,10 +204,10 @@ Size key: **S** up to half a day, **M** about a day, **L** two to three days, in
 
 | ID | Work package | Size | Acceptance | Status |
 |---|---|---|---|---|
-| WP1.3 | Fixed 60 Hz step (port from redux `stepSimulation`); per-frame constants become per-step | M | `advanceTime(5000)` gives identical obstacle displacement at 60/120/144 Hz; feel matches WP0.3 | ☐ |
-| WP1.4 | Audio: one `AudioContext`, created lazily and resumed on first input; `AudioManager` port; `M` mutes; load BGM after game start | M | Engine audible after first input on Chrome, Safari and iOS Safari; game playable before BGM finishes loading | ☐ |
-| WP1.5 | Difficulty ramp (`speedIncrement`, capped); single `resetRun()` (including the spawn timer, issue 12); re-entry guard on crash handling | S | No leaked speed, UFO or obstacles across restarts; one crash sound per crash | ☐ |
-| WP1.6 | Centre road art on the lanes (`tilePositionX` 272 by measurement, Appendix A.4); move lane constants (`ROAD` bounds, off-road shake, spawn zones, tree zones) into `config.js` | S | Car shows equal margin at both edges; shake starts when the car body leaves the asphalt | ☐ |
+| WP1.3 | Fixed 60 Hz step (port from redux `stepSimulation`); per-frame constants become per-step | M | `advanceTime(5000)` gives identical obstacle displacement at 60/120/144 Hz; feel matches WP0.3 | ☑ branch `fix/correctness` |
+| WP1.4 | Audio: one `AudioContext`, created lazily and resumed on first input; `AudioManager` port; `M` mutes; load BGM after game start | M | Engine audible after first input on Chrome, Safari and iOS Safari; game playable before BGM finishes loading | ☑ branch `fix/correctness` |
+| WP1.5 | Difficulty ramp (`speedIncrement`, capped); single `resetRun()` (including the spawn timer, issue 12); re-entry guard on crash handling | S | No leaked speed, UFO or obstacles across restarts; one crash sound per crash | ☑ branch `fix/correctness` |
+| WP1.6 | Centre road art on the lanes (`tilePositionX` 272 by measurement, Appendix A.4); move lane constants (`ROAD` bounds, off-road shake, spawn zones, tree zones) into `config.js` | S | Car shows equal margin at both edges; shake starts when the car body leaves the asphalt | ☑ branch `fix/correctness` |
 
 **Group PR3: art pipeline and hygiene**
 
@@ -216,7 +216,7 @@ Size key: **S** up to half a day, **M** about a day, **L** two to three days, in
 | WP1.7 | Art pipeline: move the 1024 px originals to `art/source/`; add `tools/build_sprites.py` (bake each sprite to its on-screen size by area averaging on premultiplied alpha, threshold alpha at 128, quantize to `art/palette.hex`, write indexed PNGs to `assets/sprites/`, write a before/after sheet); the armadillo is baked from its 64×65 PNG (its only source) with a 2 px margin | M | Same inputs give byte-identical outputs; every sprite and the road load at scale 1.0; art payload under 100 KB | ☐ |
 | WP1.8 | Shared palette: turn the prototype candidate (Appendix A.7) into a reviewed, locked `art/palette.hex` (plus `.gpl`); you approve the before/after sheet | S–M | Mean colour shift 3 or less per sprite (OKLab ΔE×100); UFO LEDs (teal, purple, cyan), red tail lights and X mark, car orange trim and trailer teal chevron stay distinct; asphalt keeps at least 20 tones; the audit script fails on any off-palette pixel | ☐ |
 | WP1.9 | Music: file unchanged (D8). Measure BGM start time and memory on a real phone; if it stalls or crashes, switch BGM to HTML5-audio streaming (code-only change) | S | Game interactive before the BGM finishes loading; no crash or long stall on a phone | ☐ |
-| WP1.10 | Input polish: 500 ms restart lockout after a crash; keyboard/touch restart parity | S | Holding a finger down at crash does not restart | ☐ |
+| WP1.10 | Input polish: 500 ms restart lockout after a crash; keyboard/touch restart parity | S | Holding a finger down at crash does not restart | ☑ branch `fix/correctness` |
 | WP1.11 | Repo hygiene: enable GitHub Pages on the fork (repository setting, owner action); delete the local backup `refs/original` and run `git gc` once the owner is happy with the purged history (the force-push is done); remove the two small `.bat` scripts, `assets/debug.txt`, `trailer_alt.png` and the 1024 px originals from `assets/` (they move to `art/source/`); move `fix_assets.py` to `tools/`; fix README Play link and add module-serving note | S | `git ls-files` contains only source, `art/`, and shipped assets | ☐ |
 
 **Phase 1 exit:** parity plus fixes; section 10 checklist passes; own art and code (excluding Phaser and the BGM) 500 KB or less; game interactive before the BGM finishes loading; verified on the live Pages URL.
@@ -497,3 +497,4 @@ Purpose: prove the module split and the Phaser upgrade change no behavior, and r
 - 2026-09-30: Decisions recorded: new content deferred (O1), shared palette (O2), music unchanged (O3), music license verified (O6). Later the same day: zip purged from history (O4), 48-colour candidate approved (O7), car and trailer re-baked (O8); `v0-prototype` tagged and branch `refactor/es-modules` started. Art lineage and palette prototype added (Appendix A.6, A.7); WP1.7 to WP1.11 reworked; D7 and D8 added.
 - 2026-09-30 (later): PR1 done on branch `refactor/es-modules`: module split (WP1.1) and Phaser 3.90.0 (WP1.2), verified against the original (Appendix D). Issues 11 and 12 added; issues 1 and 6 verified; WP2.6 seeding advice corrected; WP0.3 closed.
 - 2026-09-30 (latest): `main` force-pushed to the purged history on the fork (lease on the old tip), tag `v0-prototype` and branch `refactor/es-modules` pushed. Found that GitHub Pages is not enabled on the fork; baseline, issue 10, WP1.11 and section 13 corrected.
+- 2026-09-30 (PR2): fixed 60 Hz step, audio resume on first input, music loaded after start, `M` mute, base-speed ramp, `resetRun` (speed, spawn grace, UFO timer), crash re-entry guard, 500 ms restart lockout, road centred (`tilePositionX` 272). Measured at 120 fps: road 129 px/s (was 240), first obstacle 1.8 s after a restart. Issues 1, 2, 3, 4, 5, 7, 9 and 12 fixed.

@@ -1,4 +1,4 @@
-import { ROAD } from '../config.js';
+import { ROAD, TUNING } from '../config.js';
 
 // Obstacle spawning, movement and pass-by scoring. Behavior unchanged from the original game.js.
 export class SpawnSystem {
@@ -11,7 +11,7 @@ export class SpawnSystem {
   }
 
   start() {
-    this.nextSpawnTime = this.scene.time.now + 2000;
+    this.nextSpawnTime = this.scene.time.now + TUNING.firstSpawnDelayMs;
   }
 
   update(currentSpeed, multiplier) {

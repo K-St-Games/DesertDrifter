@@ -1,4 +1,4 @@
-import { ROAD } from '../config.js';
+import { ROAD, TUNING } from '../config.js';
 import { AudioManager } from '../audio/AudioManager.js';
 import { Controls } from '../input/Controls.js';
 import { HighScoreManager } from '../managers/HighScoreManager.js';
@@ -12,9 +12,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.speed = 1;
+    this.speed = TUNING.baseSpeed;
     this.score = 0;
     this.gameOver = false;
+    this.gameOverAt = 0;
+    this.stepAccumulator = 0;
 
     // Load High Scores
     this.highScoreManager = new HighScoreManager();
@@ -24,13 +26,16 @@ export class GameScene extends Phaser.Scene {
     this.audio = new AudioManager();
     this.audio.init();
 
-    // Play music if loaded successfully (Background Radio)
-    if (this.cache.audio.exists('bgm')) {
+    // Music (23 MB) loads in the background so it never blocks the start of the game.
+    this.load.audio('bgm', 'assets/8bit_radio.mp3');
+    this.load.once('complete', () => {
+      if (!this.cache.audio.exists('bgm')) return;
       const music = this.sound.add('bgm', { loop: true, volume: 0.5 });
       // Increased randomization to 660 seconds (11 minutes)
       const randomStart = Phaser.Math.FloatBetween(0, 660);
       music.play({ seek: randomStart });
-    }
+    });
+    this.load.start();
 
     // 2. Road
     this.road = this.add.tileSprite(240, 320, 480, 640, 'road');
@@ -121,16 +126,33 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.form.destroy());
   }
 
-  update() {
+  update(time, delta) {
+    if (this.controls.muteJustPressed()) {
+      const muted = this.audio.toggleMute();
+      this.sound.mute = muted;
+    }
+
     if (this.gameOver) {
-      // Only allow space restart if NOT showing input form
-      if (!this.form.isVisible()) {
+      // Only allow restart if NOT showing input form, and not straight after the crash
+      if (!this.form.isVisible() && this.time.now - this.gameOverAt > TUNING.restartLockoutMs) {
         if (this.controls.restartRequested()) {
           this.restartGame();
         }
       }
       return;
     }
+
+    // Fixed-step simulation: identical speed on 60, 120 and 144 Hz displays.
+    this.stepAccumulator += Math.min(delta, TUNING.maxFrameMs);
+    while (this.stepAccumulator >= TUNING.stepMs && !this.gameOver) {
+      this.stepAccumulator -= TUNING.stepMs;
+      this.step();
+    }
+  }
+
+  step() {
+    // Base speed creeps up during a run
+    this.speed = Math.min(this.speed + TUNING.speedIncrement, TUNING.maxBaseSpeed);
 
     // --- 1. Scroll Road ---
     let currentSpeed = this.speed;
@@ -206,8 +228,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   hitObstacle(playerOrTrailer, obstacle) {
+    // Car and trailer can overlap in the same physics step: handle the crash once
+    if (this.gameOver) return;
+
     this.physics.pause();
     this.gameOver = true;
+    this.gameOverAt = this.time.now;
     playerOrTrailer.setTint(0xff0000);
 
     // Stop engine sound, play crash sound
@@ -240,6 +266,8 @@ export class GameScene extends Phaser.Scene {
   restartGame() {
     this.gameOver = false;
     this.score = 0;
+    this.speed = TUNING.baseSpeed;
+    this.stepAccumulator = 0;
 
     // Restart engine sound
     this.audio.resetEngine();
@@ -255,6 +283,7 @@ export class GameScene extends Phaser.Scene {
     this.trailer.setPosition(240, 500);
 
     this.spawner.clear();
+    this.spawner.start(); // same grace period as the first run
 
     this.ufo.reset();
 
