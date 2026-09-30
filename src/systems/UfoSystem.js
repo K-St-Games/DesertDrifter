@@ -50,6 +50,10 @@ export class UfoSystem {
     }
 
     if (this.active && !gameOver) {
+      if (this.state === 'approaching' || this.state === 'locking') {
+        beam.clear(); // the previous shot's beam is only redrawn while charging/firing
+      }
+
       if (this.state === 'approaching') {
         // Move to random target slowly
         ufo.x = Phaser.Math.Linear(ufo.x, this.targetX, 0.02);
