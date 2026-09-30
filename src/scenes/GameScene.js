@@ -19,6 +19,7 @@ export class GameScene extends Phaser.Scene {
     this.gameOver = false;
     this.gameOverAt = 0;
     this.paused = false;
+    this.pauseStartedAt = null;
     this.stepAccumulator = 0;
 
     this.factory = new EntityFactory(this);
@@ -150,7 +151,19 @@ export class GameScene extends Phaser.Scene {
     if (!this.gameOver && this.controls.pauseJustPressed()) {
       this.paused = !this.paused;
       this.pausedText.setVisible(this.paused);
-      if (this.paused) this.physics.pause(); else this.physics.resume();
+      if (this.paused) {
+        this.pauseStartedAt = this.time.now;
+        this.physics.pause();
+      } else {
+        // The scene clock keeps advancing while physics is paused. Preserve the
+        // remaining spawn delays instead of letting them expire during a pause.
+        const pausedMs = this.time.now - this.pauseStartedAt;
+        this.spawner.nextSpawnTime += pausedMs;
+        // Zero means the UFO's first spawn has not been scheduled yet.
+        if (this.ufo.nextSpawnTime > 0) this.ufo.nextSpawnTime += pausedMs;
+        this.pauseStartedAt = null;
+        this.physics.resume();
+      }
     }
     if (this.paused) return;
 

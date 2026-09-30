@@ -89,8 +89,8 @@ export class UfoSystem {
           beam.fillStyle(0xffff00, 0.3); // Yellow
           beam.beginPath();
           beam.moveTo(ufo.x, ufo.y + 20);
-          beam.lineTo(ufo.x - 40, 700);
-          beam.lineTo(ufo.x + 40, 700);
+          beam.lineTo(ufo.x - UFO.beamHalfWidth, 700);
+          beam.lineTo(ufo.x + UFO.beamHalfWidth, 700);
           beam.closePath();
           beam.fillPath();
         }
@@ -107,8 +107,8 @@ export class UfoSystem {
         beam.fillStyle(0x00ff00, 0.6); // Green
         beam.beginPath();
         beam.moveTo(ufo.x, ufo.y + 20);
-        beam.lineTo(ufo.x - 40, 700);
-        beam.lineTo(ufo.x + 40, 700);
+        beam.lineTo(ufo.x - UFO.beamHalfWidth, 700);
+        beam.lineTo(ufo.x + UFO.beamHalfWidth, 700);
         beam.closePath();
         beam.fillPath();
 
