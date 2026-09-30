@@ -2,7 +2,7 @@
 title: "Desert Drifter — Enhancement Plan"
 description: "Phased plan to modernize the Desert Drifter fork by porting proven parts of HiOrbit_game and HiOrbit_redux, fixing foundation issues, and rebuilding the art on a shared palette. New content is deferred."
 status: active
-status_detail: "Phase 1 in progress (PR1: module split, Phaser pin); Phase 3 (new content) deferred by decision; shared palette locked in WP1.8"
+status_detail: "Phase 1 in progress: PR1 (module split, Phaser 3.90.0) done on branch refactor/es-modules; next is PR2 (correctness). Phase 3 deferred by decision; shared palette locked in WP1.8"
 owner: "K_St_Games Team"
 last_updated: 2026-09-30
 kind: plan
@@ -49,7 +49,7 @@ This plan does the opposite. It keeps this fork's no-build GitHub Pages hosting,
 
 State at `main` @ `d1b6fe4`: the original tip `b9b3e5d` with `HiOrbit_Game.zip` purged from history on 2026-09-30 (O4). The original history stays in `refs/original/refs/heads/main` and on `origin` until the rewrite is force-pushed.
 
-- **Runtime:** [game.js](game.js) (706 lines, about 30 module-level globals) plus [index.html](index.html). Phaser 3.55.2 from jsDelivr. GitHub Pages serves `main` (`.nojekyll`). Remote: `K-St-Games/DesertDrifter`.
+- **Runtime (at `v0-prototype`):** `game.js` (706 lines, about 30 module-level globals) plus `index.html`. Phaser 3.55.2 from jsDelivr. Since PR1 the code lives in `src/` (see section 6) and Phaser is 3.90.0; line numbers below refer to `game.js` at `v0-prototype`. GitHub Pages serves `main` (`.nojekyll`). Remote: `K-St-Games/DesertDrifter`.
 - **Gameplay:** 480×640 canvas; truck with a towed trailer (lerp-follow and sway); tumbleweed, rock, tree, turtle; UFO boss (approach, lock, charge, fire, three attacks); x2 multiplier at speed 2 or more; local top-10 with initials.
 - **Controls:** arrows/WASD; touch (left/right half steers, top half boosts, bottom brakes); fullscreen button.
 - **Payload:** the player downloads about 27 MB before `create()` runs (23 MB music, 4.2 MB sprites). The music is 12:41 at 250 kbps and decodes to about 270 MB of PCM in memory (761 s × 44.1 kHz × 2 ch × 4 B). Object sprites are 1024×1024 shown at 5–15% scale. The repo also tracked a 28 MB `HiOrbit_Game.zip` (`.git` was 34 MB); it was purged from history on 2026-09-30.
@@ -60,16 +60,18 @@ State at `main` @ `d1b6fe4`: the original tip `b9b3e5d` with `HiOrbit_Game.zip` 
 
 | # | Issue | Evidence | Impact | Fixed in |
 |---|---|---|---|---|
-| 1 | Movement is per-frame, not time-based | [game.js:281](game.js#L281), [game.js:469](game.js#L469) | Likely about 2x speed on 120/144 Hz displays (unverified) | WP1.3 |
-| 2 | `AudioContext` created before any user gesture and never resumed | [game.js:91](game.js#L91) | Engine/UFO synth may be silent in browsers that suspend it (unverified) | WP1.4 |
+| 1 | Movement is per-frame, not time-based | `game.js:281`, `game.js:469` | **Verified 2026-09-30:** at 120 fps the road scrolls 240 px/s against the intended 120 px/s at 60 fps, exactly 2x (Appendix D) | WP1.3 |
+| 2 | `AudioContext` created before any user gesture and never resumed | `game.js:91` | Engine/UFO synth may be silent in browsers that suspend it (unverified) | WP1.4 |
 | 3 | Start is gated on the 23 MB music download and decode | `preload()` loads `bgm` | Slow start; the ~270 MB decode may crash low-memory phones (unverified) | WP1.4, WP1.9 |
-| 4 | No difficulty ramp | [game.js:35](game.js#L35) `speed = 1` | Flat difficulty | WP1.5 |
+| 4 | No difficulty ramp | `game.js:35` `speed = 1` | Flat difficulty | WP1.5 |
 | 5 | Road art is off-centre from gameplay constants | Appendix A.4 | Right 34 px of asphalt counts as "rough"; lane spawns are lopsided | WP1.6 |
-| 6 | Turtle/tumbleweed circle hitboxes anchored to the frame's top-left | [game.js:539](game.js#L539), [game.js:542](game.js#L542) (`setCircle`, no offset) | Hits register up-left of the art | WP2.2 |
-| 7 | Touch restart fires immediately at game over | [game.js:221](game.js#L221) | Finger still down means an instant accidental restart | WP1.10 |
-| 8 | `JSON.parse` of saved scores is unguarded | [game.js:86](game.js#L86) | Corrupt storage stops the game from starting | WP2.3 |
-| 9 | Crash handler has no re-entry guard | [game.js:565](game.js#L565) | Car and trailer can both trigger it in one physics step (double crash sound/form) | WP1.5 |
+| 6 | Turtle/tumbleweed circle hitboxes anchored to the frame's top-left | `game.js:539`, `game.js:542` (`setCircle`, no offset) | **Verified at runtime:** body offset is (0,0); hits register up-left of the art | WP2.2 |
+| 7 | Touch restart fires immediately at game over | `game.js:221` | Finger still down means an instant accidental restart | WP1.10 |
+| 8 | `JSON.parse` of saved scores is unguarded | `game.js:86` | Corrupt storage stops the game from starting | WP2.3 |
+| 9 | Crash handler has no re-entry guard | `game.js:565` | Car and trailer can both trigger it in one physics step (double crash sound/form) | WP1.5 |
 | 10 | README "Play" link points at `thomasmeston.github.io` | [README.md](README.md) | Points at the original author's deployment, not this fork | WP1.11 |
+| 11 | Phaser key capture swallows W/A/S/D, arrows and Space while the initials field has focus | `keyboard.addKey`/`createCursorKeys` capture by default | **Verified 2026-09-30:** `keydown` for those keys arrives with `defaultPrevented` true, so those letters cannot be typed as initials | WP2.3 |
+| 12 | The spawn timer is not reset on restart | `restartGame()` never touches `nextSpawnTime` | **Verified 2026-09-30:** the timer had expired 4.9 s earlier, so an obstacle spawns on the first frame of every restarted run (the first run gets a 2 s grace) | WP1.5 |
 
 ## 4. What to port and what to skip
 
@@ -130,19 +132,20 @@ DesertDrifter/
 ├── assets/
 │   ├── audio/                  # bgm, unchanged (D8)
 │   └── sprites/                # generated indexed PNGs at on-screen size; do not hand-edit
-├── src/
-│   ├── main.js                 # Phaser.Game bootstrap
+├── src/                        # entries without a marker exist since PR1
+│   ├── main.js                 # Phaser.Game bootstrap; ?debug exposes window.game
 │   ├── config.js               # canvas, physics, tuning knobs, ROAD bounds
-│   ├── entities.js             # entity table (below)
-│   ├── behaviors.js            # behavior functions by id (tumble, crawl, ...)   [Phase 2-3]
+│   ├── entities.js             # entity table (below)                             [WP2.1]
+│   ├── behaviors.js            # behavior functions by id (tumble, crawl, ...)    [Phase 3]
 │   ├── effects.js              # timed powerup effects + HUD chips                [Phase 3]
 │   ├── scenes/{PreloadScene,GameScene}.js
 │   ├── systems/{SpawnSystem,UfoSystem}.js
-│   ├── factory/EntityFactory.js
+│   ├── factory/EntityFactory.js                                                    [WP2.2]
 │   ├── input/Controls.js       # keyboard + touch behind one API
 │   ├── audio/AudioManager.js
 │   ├── managers/HighScoreManager.js
-│   └── debug/CollisionDebug.js
+│   ├── ui/{HighScoreForm,fullscreen}.js   # DOM initials form, fullscreen button
+│   └── debug/CollisionDebug.js                                                     [WP2.6]
 └── tools/
     ├── build_sprites.py        # bake, quantize to the palette, write indexed PNGs (Pillow, numpy, scikit-learn, scipy)
     ├── audit_sprites.py        # verifies the output (Appendix A and B checks)
@@ -185,7 +188,7 @@ Size key: **S** up to half a day, **M** about a day, **L** two to three days, in
 |---|---|---|---|---|
 | WP0.1 | Tag `v0-prototype` at `d1b6fe4` (the purged original tip) | S | Tag exists; it is pushed together with the history rewrite | ☑ local, push pending |
 | WP0.2 | Adopt the branch/PR flow above | S | First PR merged via the flow | ☑ branch `refactor/es-modules` |
-| WP0.3 | Capture baseline: 60 s play recording plus notes on speed, spawn cadence, UFO timing | S | Numbers recorded in the PR for WP1.3 | ☐ |
+| WP0.3 | Capture baseline: speed, spawn cadence, UFO timing | S | Numbers recorded (Appendix D) | ☑ |
 | WP0.4 | Add `tools/audit_sprites.py` reproducing Appendix A; it also checks palette membership once WP1.8 lands | S | Script output matches Appendix A tables | ☐ |
 
 ### Phase 1. Foundation
@@ -194,8 +197,8 @@ Size key: **S** up to half a day, **M** about a day, **L** two to three days, in
 
 | ID | Work package | Size | Acceptance | Status |
 |---|---|---|---|---|
-| WP1.1 | Split `game.js` into the modules in section 6; bind form handlers in JS instead of `window.*` | M | A/B against `v0-prototype` shows no gameplay difference; no console errors | ☐ |
-| WP1.2 | Pin Phaser 3.90.0; verify TileSprite scroll, text styles (`fill` vs `color`), overlaps, pointer input | S | Section 10 checklist passes | ☐ |
+| WP1.1 | Split `game.js` into the modules in section 6 (the ones marked as existing); bind form handlers in JS instead of `window.*` | M | A/B against `v0-prototype` shows no gameplay difference; no console errors | ☑ branch `refactor/es-modules`; seeded scenarios identical (Appendix D) |
+| WP1.2 | Pin Phaser 3.90.0; verify TileSprite scroll, text styles (`fill` vs `color`), overlaps, pointer input | S | Section 10 checklist passes | ☑ branch `refactor/es-modules`; all scenarios identical to 3.55.2 (Appendix D) |
 
 **Group PR2: correctness**
 
@@ -203,7 +206,7 @@ Size key: **S** up to half a day, **M** about a day, **L** two to three days, in
 |---|---|---|---|---|
 | WP1.3 | Fixed 60 Hz step (port from redux `stepSimulation`); per-frame constants become per-step | M | `advanceTime(5000)` gives identical obstacle displacement at 60/120/144 Hz; feel matches WP0.3 | ☐ |
 | WP1.4 | Audio: one `AudioContext`, created lazily and resumed on first input; `AudioManager` port; `M` mutes; load BGM after game start | M | Engine audible after first input on Chrome, Safari and iOS Safari; game playable before BGM finishes loading | ☐ |
-| WP1.5 | Difficulty ramp (`speedIncrement`, capped); single `resetRun()`; re-entry guard on crash handling | S | No leaked speed, UFO or obstacles across restarts; one crash sound per crash | ☐ |
+| WP1.5 | Difficulty ramp (`speedIncrement`, capped); single `resetRun()` (including the spawn timer, issue 12); re-entry guard on crash handling | S | No leaked speed, UFO or obstacles across restarts; one crash sound per crash | ☐ |
 | WP1.6 | Centre road art on the lanes (`tilePositionX` 272 by measurement, Appendix A.4); move lane constants (`ROAD` bounds, off-road shake, spawn zones, tree zones) into `config.js` | S | Car shows equal margin at both edges; shake starts when the car body leaves the asphalt | ☐ |
 
 **Group PR3: art pipeline and hygiene**
@@ -224,10 +227,10 @@ Size key: **S** up to half a day, **M** about a day, **L** two to three days, in
 |---|---|---|---|---|
 | WP2.1 | `entities.js` for all current entities (including car, trailer, UFO); preload textures from the table | M | No entity constants remain in scene code | ☐ |
 | WP2.2 | `EntityFactory` port: hitboxes from the `collision` block; overlay draws `body.halfWidth`; tree centre Y to 0.75 (verify with overlay) | M | Overlay circles match physics on every circle entity | ☐ |
-| WP2.3 | `HighScoreManager` port; DOM initials form; guarded `JSON.parse` | S | Corrupt `highScores` starts a clean game | ☐ |
-| WP2.4 | `SpawnSystem`: weighted pool, `spawnZone`, `points` from the table; minimum gap between spawns scaled by speed | M | Over 1,000 spawns, each type lands within 3 points of its weight share | ☐ |
-| WP2.5 | Extract UFO into `UfoSystem` (state machine class, step-based timers); tunables in config | M | Identical UFO cycle to baseline | ☐ |
-| WP2.6 | Test hooks: overlay (`0`), `render_game_to_text`, `advanceTime`, `?seed=` seeding `Phaser.Math.RND` | S | Same seed and steps produce identical state snapshots | ☐ |
+| WP2.3 | `HighScoreManager` hardening (its extraction was done in WP1.1): guarded `JSON.parse`; disable Phaser key capture while the initials form is visible (issue 11) | S | Corrupt `highScores` starts a clean game; W/A/S/D, arrows and Space can be typed as initials | ☐ |
+| WP2.4 | `SpawnSystem` (extracted in WP1.1): weighted pool, `spawnZone`, `points` from the table; minimum gap between spawns scaled by speed | M | Over 1,000 spawns, each type lands within 3 points of its weight share | ☐ |
+| WP2.5 | `UfoSystem` (extracted in WP1.1): step-based timers (with WP1.3) and tunables in config | S | Identical UFO cycle to baseline (Appendix D timeline) | ☐ |
+| WP2.6 | Test hooks: overlay (`0`), `render_game_to_text`, `advanceTime`, `?seed=`. Seeding must replace `Math.random` (Phaser's `Between` and `FloatBetween` use it, so `Phaser.Math.RND.sow` has no effect on them), or the game must move to `Phaser.Math.RND` | S | Same seed and steps produce identical state snapshots | ☐ |
 | WP2.7 | Hitbox balance pass using Appendix A.3 (recompute it on the baked sprites). Targets: player boxes about 80–90% of visible art area (fork 76–79%, redux 106–108%); obstacles 75–90% | M | Playtest log: 10 runs, no phantom or missed hits | ☐ |
 | WP2.8 | Prove the model: add the armadillo to the table at `spawnWeight: 0`; temporarily raise the weight to confirm it spawns, scores and collides, then leave it at 0 (no new obstacle ships) | S | No engine code touched; the armadillo does not appear in normal play | ☐ |
 
@@ -397,7 +400,7 @@ Findings:
 
 The road art is identical in the fork and redux. Asphalt occupies texture columns 409–614 (206 px wide, centre 511.5); edge lines sit at 398.5 and 617.5; centre dashes at 507 and 517.
 
-With `tilePositionX = 260` ([game.js:148](game.js#L148)), asphalt spans screen x 149–354 (centre 251.5) and the centre dashes sit at 247–257. Gameplay constants centre on 240: road bounds 160–320, off-road shake outside them, truck start at 240. The art is 11.5 px right of the logic, so 34 px of right-hand asphalt counts as "rough terrain".
+With `tilePositionX = 260` (`game.js:148`, now `ROAD.tilePositionX` in `src/config.js`), asphalt spans screen x 149–354 (centre 251.5) and the centre dashes sit at 247–257. Gameplay constants centre on 240: road bounds 160–320, off-road shake outside them, truck start at 240. The art is 11.5 px right of the logic, so 34 px of right-hand asphalt counts as "rough terrain".
 
 Fix (WP1.6): `tilePositionX = 272`, giving asphalt 137–342 (centre 239.5). The 160–320 bounds stay roughly valid (truck half-width is about 30 px); re-derive tree zones and verify with the overlay.
 
@@ -456,13 +459,40 @@ Findings:
 
 ## Appendix C. References
 
-- This repo: [game.js](game.js), [index.html](index.html), [README.md](README.md)
+- This repo: `src/` (`game.js` at tag `v0-prototype`), [index.html](index.html), [README.md](README.md)
 - Redux: `src/scenes/GameScene.ts`, `src/audio/AudioManager.ts`, `src/managers/HighScoreManager.ts`, `src/factory/EntityFactory.ts`, `src/types/entities.ts`, `content/entities/*.json`, `content/config/game.json`, `content/assets/sprites/*`, `HiOrbit_redux_implementation.md` (section 2b)
 - `HiOrbit_game/Damien Scratch/project plan.md` (pixel-scale consistency goal)
 - Workspace doc conventions: `_docs/templates/frontmatter-template.md`
 - Palette prototype (2026-09-30): Python scripts in the session scratch area; promoted to `tools/build_sprites.py` in WP1.7
 
+## Appendix D. Parity verification (PR1)
+
+Purpose: prove the module split and the Phaser upgrade change no behavior, and record the WP0.3 baseline numbers.
+
+**Method.** The original (`v0-prototype`) and the refactor were run side by side in the same browser, each through an adapter that hides where its state lives. Four scripted scenarios ran on both, results were saved as JSON and diffed. Three test-design lessons are worth reusing:
+
+- `Phaser.Math.Between` and `FloatBetween` use `Math.random`, not the seedable `Phaser.Math.RND`. Deterministic runs need `Math.random` itself replaced by a seeded generator.
+- Each scenario must reset its own state (leaderboard, storage, UFO timer, score); leftovers from earlier scenarios and wall-clock gaps between tool calls otherwise produce false differences.
+- Hidden or background browser tabs pause `requestAnimationFrame`; the game loop must be confirmed to be advancing before a run.
+
+**Scenarios and results (all identical between original 3.55.2, refactor 3.55.2 and refactor 3.90.0).**
+
+| Scenario | What is compared | Result |
+|---|---|---|
+| Spawn | Seven seeded spawns: type, x, velocity, spin, scale, body size, circle flag, offset, depth | Identical |
+| UFO cycle | State sequence, seeded targets, beam hits (183), frame numbers of each transition | Identical; transitions within 2 frames |
+| Controls | 17 checkpoints: arrows, WASD, pointer left/right/top/bottom, engine pitch, multiplier banner, touch restart | Identical |
+| Crash and high scores | 12 checkpoints: qualifying and non-qualifying crash, submit, skip, Escape, Enter, empty submit, full list of ten, UFO reset on restart, key capture | Identical |
+| Overlap (3.55.2 vs 3.90.0) | Obstacle far away, on the car, on the trailer, 80 px and 10 px beside the car; road scroll per frame | Identical (far: no hit; car and trailer: own tint; 80 px: no hit; 10 px: hit; scroll -2 px/frame) |
+
+**Baseline numbers (WP0.3), measured at 120 fps.** Road scroll 240 px/s (intended 120 px/s at 60 fps). Seven spawns in 14.3 s at base speed (mean gap about 2 s; formula gives 1,875 ms plus or minus 100). UFO cycle, in frames from spawn: approaching 2, locking 233, charging 265, firing 445 (charging lasts 180 frames), approaching again 506 (firing lasts 61 frames), second attack 581, 627, 809, third attack 870, 1,030, 1,075, 1,255, leaving 1,317, idle 1,415. Beam hits per run: 183.
+
+**Newly verified facts.** Issue 1 (2x speed at 120 Hz), issue 6 (circle offsets are 0,0), issue 11 (key capture swallows W/A/S/D, arrows, Space in the initials field), issue 12 (spawn timer never reset on restart). Two harmless quirks kept as is: the multiplier banner keeps its old text while hidden, and the first-spawn deadline is 2,000 ms of absolute game time (both builds share this; a scene's clock is stale inside `create()`).
+
+**Status of the tooling.** The harness, the seeded-random helper and the comparison script live in the session scratch area; nothing is committed. If parity checks are wanted for later PRs, promote them to `tools/parity/` (WP4.4 covers automated smoke tests).
+
 ## Change log
 
 - 2026-09-29: Plan created from an audit of DesertDrifter, HiOrbit_game and HiOrbit_redux.
 - 2026-09-30: Decisions recorded: new content deferred (O1), shared palette (O2), music unchanged (O3), music license verified (O6). Later the same day: zip purged from history (O4), 48-colour candidate approved (O7), car and trailer re-baked (O8); `v0-prototype` tagged and branch `refactor/es-modules` started. Art lineage and palette prototype added (Appendix A.6, A.7); WP1.7 to WP1.11 reworked; D7 and D8 added.
+- 2026-09-30 (later): PR1 done on branch `refactor/es-modules`: module split (WP1.1) and Phaser 3.90.0 (WP1.2), verified against the original (Appendix D). Issues 11 and 12 added; issues 1 and 6 verified; WP2.6 seeding advice corrected; WP0.3 closed.
