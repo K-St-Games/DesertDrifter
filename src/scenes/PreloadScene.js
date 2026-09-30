@@ -9,14 +9,14 @@ export class PreloadScene extends Phaser.Scene {
       console.log('Error loading asset:', file.key);
     });
 
-    this.load.image('road', 'assets/road.png');
-    this.load.image('car', 'assets/car.png');
-    this.load.image('trailer', 'assets/trailer.png');
-    this.load.image('tumbleweed', 'assets/tumbleweed.png');
-    this.load.image('rock', 'assets/rock.png');
-    this.load.image('turtle', 'assets/turtle.png');
-    this.load.image('tree', 'assets/tree.png');
-    this.load.image('ufo', 'assets/ufo.png');
+    this.load.image('road', 'assets/sprites/road.png');
+    this.load.image('car', 'assets/sprites/car.png');
+    this.load.image('trailer', 'assets/sprites/trailer.png');
+    this.load.image('tumbleweed', 'assets/sprites/tumbleweed.png');
+    this.load.image('rock', 'assets/sprites/rock.png');
+    this.load.image('turtle', 'assets/sprites/turtle.png');
+    this.load.image('tree', 'assets/sprites/tree.png');
+    this.load.image('ufo', 'assets/sprites/ufo.png');
   }
 
   create() {

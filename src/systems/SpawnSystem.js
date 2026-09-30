@@ -84,17 +84,13 @@ export class SpawnSystem {
 
     // 1. Scale & Size
     if (type === 'tree') {
-      obstacle.setScale(0.15);
       obstacle.body.setSize(obstacle.width * 0.3, obstacle.height * 0.3);
       obstacle.body.setOffset(obstacle.width * 0.35, obstacle.height * 0.6); // Trunk only
     } else if (type === 'turtle') {
-      obstacle.setScale(0.06);
       obstacle.body.setCircle(obstacle.width * 0.25);
     } else if (type === 'tumbleweed') {
-      obstacle.setScale(0.08);
       obstacle.body.setCircle(obstacle.width * 0.3);
     } else { // Rock
-      obstacle.setScale(0.05);
       obstacle.body.setSize(obstacle.width * 0.7, obstacle.height * 0.6);
     }
 

@@ -3,13 +3,13 @@ from rembg import remove
 
 # Explicitly check these
 files = [
-    "assets/car.png",
-    "assets/trailer.png",
-    "assets/tumbleweed.png",
-    "assets/rock.png",
-    "assets/turtle.png",
-    "assets/tree.png",
-    "assets/ufo.png"
+    "art/source/car.png",
+    "art/source/trailer.png",
+    "art/source/tumbleweed.png",
+    "art/source/rock.png",
+    "art/source/turtle.png",
+    "art/source/tree.png",
+    "art/source/ufo.png"
 ]
 
 print("Starting cleanup...")

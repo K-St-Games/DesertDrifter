@@ -27,7 +27,7 @@ export class GameScene extends Phaser.Scene {
     this.audio.init();
 
     // Music (23 MB) loads in the background so it never blocks the start of the game.
-    this.load.audio('bgm', 'assets/8bit_radio.mp3');
+    this.load.audio('bgm', 'assets/audio/8bit_radio.mp3');
     this.load.once('complete', () => {
       if (!this.cache.audio.exists('bgm')) return;
       const music = this.sound.add('bgm', { loop: true, volume: 0.5 });
@@ -61,12 +61,10 @@ export class GameScene extends Phaser.Scene {
 
     // 3. Trailer
     this.trailer = this.physics.add.sprite(240, 500, 'trailer');
-    this.trailer.setScale(0.13);
     this.trailer.body.setSize(this.trailer.width * 0.5, this.trailer.height * 0.5);
 
     // 4. Car
     this.car = this.physics.add.sprite(240, 400, 'car');
-    this.car.setScale(0.13);
     this.car.body.setSize(this.car.width * 0.5, this.car.height * 0.6);
     this.car.setCollideWorldBounds(true);
 

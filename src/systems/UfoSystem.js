@@ -15,7 +15,6 @@ export class UfoSystem {
     this.nextSpawnTime = 0;
 
     const ufo = scene.physics.add.sprite(-100, -100, 'ufo');
-    ufo.setScale(0.15);
     ufo.setVisible(false);
     ufo.setDepth(20); // Top layer
     ufo.body.setCircle(ufo.width * 0.35); // Circular hitbox

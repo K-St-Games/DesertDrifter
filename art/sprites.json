@@ -1,0 +1,14 @@
+{
+  "_comment": "On-screen frame size in pixels (square). Sprites are baked to this size, so entity scale is 1. armadillo is baked from its 64x65 file (no hi-res original).",
+  "car": 133,
+  "trailer": 133,
+  "rock": 51,
+  "tree": 154,
+  "tumbleweed": 82,
+  "turtle": 61,
+  "ufo": 154,
+  "armadillo": {
+    "size": 38,
+    "margin": 2
+  }
+}
