@@ -49,7 +49,7 @@ This plan does the opposite. It keeps this fork's no-build GitHub Pages hosting,
 
 State at `main` @ `d1b6fe4`: the original tip `b9b3e5d` with `HiOrbit_Game.zip` purged from history on 2026-09-30 (O4). The original history stays in `refs/original/refs/heads/main` and on `origin` until the rewrite is force-pushed.
 
-- **Runtime (at `v0-prototype`):** `game.js` (706 lines, about 30 module-level globals) plus `index.html`. Phaser 3.55.2 from jsDelivr. Since PR1 the code lives in `src/` (see section 6) and Phaser is 3.90.0; line numbers below refer to `game.js` at `v0-prototype`. GitHub Pages serves `main` (`.nojekyll`). Remote: `K-St-Games/DesertDrifter`.
+- **Runtime (at `v0-prototype`):** `game.js` (706 lines, about 30 module-level globals) plus `index.html`. Phaser 3.55.2 from jsDelivr. Since PR1 the code lives in `src/` (see section 6) and Phaser is 3.90.0; line numbers below refer to `game.js` at `v0-prototype`. `.nojekyll` is committed, but GitHub Pages is not enabled on the fork (checked 2026-09-30: the Pages API returns 404 and `k-st-games.github.io/DesertDrifter` is a 404), so this repo has no live site yet. Remote: `K-St-Games/DesertDrifter`, a public GitHub fork of `thomasmeston/DesertDrifter`; its `main` was force-pushed on 2026-09-30 to drop the zip, so it no longer shares history with the parent.
 - **Gameplay:** 480×640 canvas; truck with a towed trailer (lerp-follow and sway); tumbleweed, rock, tree, turtle; UFO boss (approach, lock, charge, fire, three attacks); x2 multiplier at speed 2 or more; local top-10 with initials.
 - **Controls:** arrows/WASD; touch (left/right half steers, top half boosts, bottom brakes); fullscreen button.
 - **Payload:** the player downloads about 27 MB before `create()` runs (23 MB music, 4.2 MB sprites). The music is 12:41 at 250 kbps and decodes to about 270 MB of PCM in memory (761 s × 44.1 kHz × 2 ch × 4 B). Object sprites are 1024×1024 shown at 5–15% scale. The repo also tracked a 28 MB `HiOrbit_Game.zip` (`.git` was 34 MB); it was purged from history on 2026-09-30.
@@ -69,7 +69,7 @@ State at `main` @ `d1b6fe4`: the original tip `b9b3e5d` with `HiOrbit_Game.zip` 
 | 7 | Touch restart fires immediately at game over | `game.js:221` | Finger still down means an instant accidental restart | WP1.10 |
 | 8 | `JSON.parse` of saved scores is unguarded | `game.js:86` | Corrupt storage stops the game from starting | WP2.3 |
 | 9 | Crash handler has no re-entry guard | `game.js:565` | Car and trailer can both trigger it in one physics step (double crash sound/form) | WP1.5 |
-| 10 | README "Play" link points at `thomasmeston.github.io` | [README.md](README.md) | Points at the original author's deployment, not this fork | WP1.11 |
+| 10 | README "Play" link points at `thomasmeston.github.io` | [README.md](README.md) | Points at the original author's deployment; this fork has no Pages site yet | WP1.11 |
 | 11 | Phaser key capture swallows W/A/S/D, arrows and Space while the initials field has focus | `keyboard.addKey`/`createCursorKeys` capture by default | **Verified 2026-09-30:** `keydown` for those keys arrives with `defaultPrevented` true, so those letters cannot be typed as initials | WP2.3 |
 | 12 | The spawn timer is not reset on restart | `restartGame()` never touches `nextSpawnTime` | **Verified 2026-09-30:** the timer had expired 4.9 s earlier, so an obstacle spawns on the first frame of every restarted run (the first run gets a 2 s grace) | WP1.5 |
 
@@ -186,7 +186,7 @@ Size key: **S** up to half a day, **M** about a day, **L** two to three days, in
 
 | ID | Work package | Size | Acceptance | Status |
 |---|---|---|---|---|
-| WP0.1 | Tag `v0-prototype` at `d1b6fe4` (the purged original tip) | S | Tag exists; it is pushed together with the history rewrite | ☑ local, push pending |
+| WP0.1 | Tag `v0-prototype` at `d1b6fe4` (the purged original tip) | S | Tag exists and is pushed | ☑ pushed 2026-09-30 |
 | WP0.2 | Adopt the branch/PR flow above | S | First PR merged via the flow | ☑ branch `refactor/es-modules` |
 | WP0.3 | Capture baseline: speed, spawn cadence, UFO timing | S | Numbers recorded (Appendix D) | ☑ |
 | WP0.4 | Add `tools/audit_sprites.py` reproducing Appendix A; it also checks palette membership once WP1.8 lands | S | Script output matches Appendix A tables | ☐ |
@@ -217,7 +217,7 @@ Size key: **S** up to half a day, **M** about a day, **L** two to three days, in
 | WP1.8 | Shared palette: turn the prototype candidate (Appendix A.7) into a reviewed, locked `art/palette.hex` (plus `.gpl`); you approve the before/after sheet | S–M | Mean colour shift 3 or less per sprite (OKLab ΔE×100); UFO LEDs (teal, purple, cyan), red tail lights and X mark, car orange trim and trailer teal chevron stay distinct; asphalt keeps at least 20 tones; the audit script fails on any off-palette pixel | ☐ |
 | WP1.9 | Music: file unchanged (D8). Measure BGM start time and memory on a real phone; if it stalls or crashes, switch BGM to HTML5-audio streaming (code-only change) | S | Game interactive before the BGM finishes loading; no crash or long stall on a phone | ☐ |
 | WP1.10 | Input polish: 500 ms restart lockout after a crash; keyboard/touch restart parity | S | Holding a finger down at crash does not restart | ☐ |
-| WP1.11 | Repo hygiene: force-push the purged history (after owner confirmation), then delete `refs/original` and run `git gc`; remove the two small `.bat` scripts, `assets/debug.txt`, `trailer_alt.png` and the 1024 px originals from `assets/` (they move to `art/source/`); move `fix_assets.py` to `tools/`; fix README Play link and add module-serving note | S | `git ls-files` contains only source, `art/`, and shipped assets | ☐ |
+| WP1.11 | Repo hygiene: enable GitHub Pages on the fork (repository setting, owner action); delete the local backup `refs/original` and run `git gc` once the owner is happy with the purged history (the force-push is done); remove the two small `.bat` scripts, `assets/debug.txt`, `trailer_alt.png` and the 1024 px originals from `assets/` (they move to `art/source/`); move `fix_assets.py` to `tools/`; fix README Play link and add module-serving note | S | `git ls-files` contains only source, `art/`, and shipped assets | ☐ |
 
 **Phase 1 exit:** parity plus fixes; section 10 checklist passes; own art and code (excluding Phaser and the BGM) 500 KB or less; game interactive before the BGM finishes loading; verified on the live Pages URL.
 
@@ -335,7 +335,7 @@ Deferred by decision on 2026-09-30. Nothing here is scheduled; the lists are kep
 | O1 | New obstacles and powerups | Decided 2026-09-30: deferred | Nothing scheduled; backlog in section 8 | — |
 | O2 | Art style direction | Decided 2026-09-30: shared palette, as an attempt with a fallback | D7; size and lock in O7 and WP1.8 | — |
 | O3 | Music | Decided 2026-09-30: leave the file as is | D8; contingency in WP1.9 | — |
-| O4 | Purge the 28 MB zip from git history | Decided 2026-09-30: purge (this fork only) | Done locally with `git filter-branch` on `main`; the original tip is preserved until the force-push (WP1.11). Only `HiOrbit_Game.zip` was purged | WP1.11 |
+| O4 | Purge the 28 MB zip from git history | Decided and done 2026-09-30 (this fork only) | `git filter-branch` on `main`, then a force-push with a lease on the old tip (`b9b3e5d`). Only `HiOrbit_Game.zip` was purged; `origin` is the fork, never the parent. The original tip stays in a local backup ref until the owner confirms. Consequence: the fork no longer shares history with `thomasmeston/DesertDrifter`, so syncing upstream later needs `--allow-unrelated-histories` | WP1.11 |
 | O5 | Sprite export policy | Resolved 2026-09-30 | Bake at on-screen size from the 1024 px originals, which exist (Appendix A.6) | — |
 | O6 | Music license or provenance for `assets/8bit_radio.mp3` | Resolved 2026-09-30: verified by the owner | — | — |
 | O7 | Palette size and lock | Approved 2026-09-30: start from the 48-colour candidate | The owner approved the prototype look (textured asphalt kept). The final lock, including pruning near-duplicates by hand, is WP1.8 | WP1.8 |
@@ -343,7 +343,7 @@ Deferred by decision on 2026-09-30. Nothing here is scheduled; the lists are kep
 
 ## 13. Release and rollback
 
-- Pages serves `main` from the repo root. Each merge deploys.
+- GitHub Pages is not enabled on the fork yet (WP1.11). Once it is enabled from `main` at the repo root, each merge deploys.
 - **Live verification** after each release: open the live URL with a hard refresh, play one full run including a crash and restart, check the console.
 - **Rollback:** revert the merge, or deploy the `v0-prototype` tag if needed.
 - No CI yet. Add a GitHub Action (HTML/JS lint) only if regressions justify it.
@@ -496,3 +496,4 @@ Purpose: prove the module split and the Phaser upgrade change no behavior, and r
 - 2026-09-29: Plan created from an audit of DesertDrifter, HiOrbit_game and HiOrbit_redux.
 - 2026-09-30: Decisions recorded: new content deferred (O1), shared palette (O2), music unchanged (O3), music license verified (O6). Later the same day: zip purged from history (O4), 48-colour candidate approved (O7), car and trailer re-baked (O8); `v0-prototype` tagged and branch `refactor/es-modules` started. Art lineage and palette prototype added (Appendix A.6, A.7); WP1.7 to WP1.11 reworked; D7 and D8 added.
 - 2026-09-30 (later): PR1 done on branch `refactor/es-modules`: module split (WP1.1) and Phaser 3.90.0 (WP1.2), verified against the original (Appendix D). Issues 11 and 12 added; issues 1 and 6 verified; WP2.6 seeding advice corrected; WP0.3 closed.
+- 2026-09-30 (latest): `main` force-pushed to the purged history on the fork (lease on the old tip), tag `v0-prototype` and branch `refactor/es-modules` pushed. Found that GitHub Pages is not enabled on the fork; baseline, issue 10, WP1.11 and section 13 corrected.
