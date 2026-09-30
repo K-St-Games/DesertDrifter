@@ -1,4 +1,6 @@
 import { ROAD, TUNING } from '../config.js';
+import { CollisionDebug } from '../debug/CollisionDebug.js';
+import { EntityFactory } from '../factory/EntityFactory.js';
 import { AudioManager } from '../audio/AudioManager.js';
 import { Controls } from '../input/Controls.js';
 import { HighScoreManager } from '../managers/HighScoreManager.js';
@@ -17,6 +19,8 @@ export class GameScene extends Phaser.Scene {
     this.gameOver = false;
     this.gameOverAt = 0;
     this.stepAccumulator = 0;
+
+    this.factory = new EntityFactory(this);
 
     // Load High Scores
     this.highScoreManager = new HighScoreManager();
@@ -44,6 +48,7 @@ export class GameScene extends Phaser.Scene {
 
     // 2. Groups
     this.spawner = new SpawnSystem(this, {
+      factory: this.factory,
       isGameOver: () => this.gameOver,
       onScore: (points) => {
         this.score += points;
@@ -60,12 +65,10 @@ export class GameScene extends Phaser.Scene {
     });
 
     // 3. Trailer
-    this.trailer = this.physics.add.sprite(240, 500, 'trailer');
-    this.trailer.body.setSize(this.trailer.width * 0.5, this.trailer.height * 0.5);
+    this.trailer = this.factory.createSprite('trailer', 240, 500);
 
     // 4. Car
-    this.car = this.physics.add.sprite(240, 400, 'car');
-    this.car.body.setSize(this.car.width * 0.5, this.car.height * 0.6);
+    this.car = this.factory.createSprite('car', 240, 400);
     this.car.setCollideWorldBounds(true);
 
     // 5. Controls
@@ -105,19 +108,24 @@ export class GameScene extends Phaser.Scene {
 
     // 9. UFO
     this.ufo = new UfoSystem(this, {
+      factory: this.factory,
       onBeamHit: (car, ufoSprite) => this.hitObstacle(car, ufoSprite),
     });
+
+    this.debug = new CollisionDebug(this);
+    window.render_game_to_text = () => this.renderGameToText();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => delete window.render_game_to_text);
 
     // High score entry form (DOM)
     this.form = new HighScoreForm({
       onSubmit: (rawInitials) => {
         if (this.highScoreManager.submit(rawInitials, this.score)) {
-          this.form.hide();
+          this.hideForm();
           this.showGameOverScreen();
         }
       },
       onSkip: () => {
-        this.form.hide();
+        this.hideForm();
         this.showGameOverScreen();
       },
     });
@@ -125,6 +133,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    this.debug.update([[this.car, 0x00ff66], [this.trailer, 0x00ccff], [this.ufo.active ? this.ufo.sprite : null, 0xff00ff], ...this.spawner.group.getChildren().map((o) => [o, 0xff3355])]);
+
     if (this.controls.muteJustPressed()) {
       const muted = this.audio.toggleMute();
       this.sound.mute = muted;
@@ -225,6 +235,20 @@ export class GameScene extends Phaser.Scene {
     this.spawner.update(currentSpeed, multiplier);
   }
 
+  // Compact state for automated tests and debugging (window.render_game_to_text)
+  renderGameToText() {
+    const r = (v) => Math.round(v * 10) / 10;
+    return JSON.stringify({
+      mode: this.gameOver ? 'game_over' : 'running',
+      score: this.score,
+      speed: r(this.speed),
+      car: { x: r(this.car.x), y: r(this.car.y) },
+      trailer: { x: r(this.trailer.x), y: r(this.trailer.y) },
+      ufo: { active: this.ufo.active, state: this.ufo.state, x: r(this.ufo.sprite.x), y: r(this.ufo.sprite.y) },
+      obstacles: this.spawner.group.getChildren().filter((o) => o.active).map((o) => ({ id: o.texture.key, x: r(o.x), y: r(o.y) })),
+    });
+  }
+
   hitObstacle(playerOrTrailer, obstacle) {
     // Car and trailer can overlap in the same physics step: handle the crash once
     if (this.gameOver) return;
@@ -245,13 +269,24 @@ export class GameScene extends Phaser.Scene {
   checkHighScore() {
     if (this.highScoreManager.qualifies(this.score)) {
       // Show Input Form
-      this.form.show();
+      this.showForm();
 
       this.scoreText.setText('NEW HIGH SCORE: ' + this.score);
     } else {
       // Just show game over and list
       this.showGameOverScreen();
     }
+  }
+
+  // Phaser captures W/A/S/D, arrows and Space (preventDefault), which would swallow those letters in the initials field.
+  showForm() {
+    this.input.keyboard.disableGlobalCapture();
+    this.form.show();
+  }
+
+  hideForm() {
+    this.form.hide();
+    this.input.keyboard.enableGlobalCapture();
   }
 
   showGameOverScreen() {

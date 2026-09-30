@@ -1,7 +1,7 @@
 // The UFO boss: approach -> lock on -> charge (warning beam) -> fire (deadly beam), three attacks, then leave.
 // Logic and timings are unchanged from the original game.js (frame-based timers).
 export class UfoSystem {
-  constructor(scene, { onBeamHit }) {
+  constructor(scene, { factory, onBeamHit }) {
     this.scene = scene;
     this.onBeamHit = onBeamHit;
 
@@ -14,11 +14,9 @@ export class UfoSystem {
     this.attackCount = 0;
     this.nextSpawnTime = 0;
 
-    const ufo = scene.physics.add.sprite(-100, -100, 'ufo');
+    const ufo = factory.createSprite('ufo', -100, -100);
     ufo.setVisible(false);
     ufo.setDepth(20); // Top layer
-    ufo.body.setCircle(ufo.width * 0.35); // Circular hitbox
-    ufo.body.setOffset(ufo.width * 0.15, ufo.height * 0.15);
     this.sprite = ufo;
 
     this.beam = scene.add.graphics();

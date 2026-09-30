@@ -6,9 +6,11 @@ const MIN_SCORE_TO_PROMPT = 1000;
 export class HighScoreManager {
   constructor() {
     this.scores = [];
-    const storedScores = localStorage.getItem(STORAGE_KEY);
-    if (storedScores) {
-      this.scores = JSON.parse(storedScores);
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (Array.isArray(parsed)) this.scores = parsed.filter((e) => e && typeof e.name === 'string' && Number.isFinite(e.score));
+    } catch (err) {
+      // corrupt or unavailable storage: start with an empty list
     }
   }
 
