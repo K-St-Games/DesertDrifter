@@ -90,21 +90,10 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
-    <script>
-        function toggleFullScreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                }
-            }
-        }
-    </script>
 </head>
 <body>
 
-    <button id="fullscreen-btn" onclick="toggleFullScreen()">⛶ Fullscreen</button>
+    <button id="fullscreen-btn">⛶ Fullscreen</button>
 
     <div id="game-container">
         <div id="highscore-form">
@@ -112,32 +101,12 @@
             <p>Enter Initials:</p>
             <input type="text" id="initials" maxlength="3" placeholder="AAA">
             <br>
-            <button class="submit-btn" onclick="submitHighScore()">SUBMIT</button>
-            <button class="skip-btn" onclick="skipHighScore()">SKIP</button>
+            <button class="submit-btn">SUBMIT</button>
+            <button class="skip-btn">SKIP</button>
         </div>
     </div>
 
-    <script src="game.js"></script>
-    <script>
-        // Keyboard shortcuts for High Score form
-        const initialsInput = document.getElementById('initials');
-        
-        initialsInput.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
-                window.submitHighScore();
-            }
-        });
-
-        document.addEventListener('keydown', function(event) {
-            const form = document.getElementById('highscore-form');
-            // Only listen if form is visible
-            if (form.style.display === 'block') {
-                if (event.key === 'Escape') {
-                    window.skipHighScore();
-                }
-            }
-        });
-    </script>
+    <script type="module" src="src/main.js"></script>
 </body>
 </html>
 
