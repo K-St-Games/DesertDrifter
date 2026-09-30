@@ -7,6 +7,7 @@ export class AudioManager {
     this.ufoLFO = null;
     this.ufoLFOGain = null;
     this.muted = false;
+    try { this.muted = localStorage.getItem('muted') === '1'; } catch (err) { /* storage unavailable */ }
   }
 
   init() {
@@ -21,6 +22,7 @@ export class AudioManager {
     const resume = () => {
       if (!this.muted && ctx.state === 'suspended') ctx.resume();
     };
+    this.ctx = ctx;
     ['pointerdown', 'keydown', 'touchstart'].forEach((type) => window.addEventListener(type, resume, { passive: true }));
     this.engineSound = ctx.createOscillator();
     const gainNode = ctx.createGain();
@@ -137,11 +139,16 @@ export class AudioManager {
   // Mutes the synthesized sounds (the music is muted through scene.sound). Returns the new state.
   toggleMute() {
     this.muted = !this.muted;
+    try { localStorage.setItem('muted', this.muted ? '1' : '0'); } catch (err) { /* storage unavailable */ }
+    this.applyMute();
+    return this.muted;
+  }
+
+  applyMute() {
     if (this.engineSound) {
       const ctx = this.engineSound.context;
       if (this.muted) ctx.suspend(); else ctx.resume();
     }
-    return this.muted;
   }
 
   // Restart engine sound

@@ -9,6 +9,11 @@ export class Controls {
     this.keyW = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     this.keyS = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
     this.keyM = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
+    this.keyP = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
+  }
+
+  pauseJustPressed() {
+    return Phaser.Input.Keyboard.JustDown(this.keyP);
   }
 
   muteJustPressed() {

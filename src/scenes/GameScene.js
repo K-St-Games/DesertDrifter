@@ -18,6 +18,7 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.gameOver = false;
     this.gameOverAt = 0;
+    this.paused = false;
     this.stepAccumulator = 0;
 
     this.factory = new EntityFactory(this);
@@ -29,6 +30,8 @@ export class GameScene extends Phaser.Scene {
     // Create procedural engine sound (Web Audio API)
     this.audio = new AudioManager();
     this.audio.init();
+    this.sound.mute = this.audio.muted;
+    if (this.audio.muted) this.audio.applyMute();
 
     // Music (23 MB) loads in the background so it never blocks the start of the game.
     this.load.audio('bgm', 'assets/audio/8bit_radio.mp3');
@@ -112,6 +115,10 @@ export class GameScene extends Phaser.Scene {
       onBeamHit: (car, ufoSprite) => this.hitObstacle(car, ufoSprite),
     });
 
+    this.pausedText = this.add.text(240, 300, 'PAUSED\nPress P', { fontSize: '28px', fill: '#ffffff', stroke: '#000000', strokeThickness: 5, align: 'center' }).setOrigin(0.5).setDepth(50).setVisible(false);
+    this.hint = this.add.text(240, 610, 'Arrows/WASD or touch to steer  |  Up = boost  |  M mute  |  P pause', { fontSize: '12px', fill: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5).setDepth(50);
+    this.tweens.add({ targets: this.hint, alpha: 0, delay: 6000, duration: 1500 });
+
     this.debug = new CollisionDebug(this);
     window.render_game_to_text = () => this.renderGameToText();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => delete window.render_game_to_text);
@@ -139,6 +146,13 @@ export class GameScene extends Phaser.Scene {
       const muted = this.audio.toggleMute();
       this.sound.mute = muted;
     }
+
+    if (!this.gameOver && this.controls.pauseJustPressed()) {
+      this.paused = !this.paused;
+      this.pausedText.setVisible(this.paused);
+      if (this.paused) this.physics.pause(); else this.physics.resume();
+    }
+    if (this.paused) return;
 
     if (this.gameOver) {
       // Only allow restart if NOT showing input form, and not straight after the crash
@@ -256,6 +270,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.pause();
     this.gameOver = true;
     this.gameOverAt = this.time.now;
+    this.cameras.main.shake(200, 0.01);
     playerOrTrailer.setTint(0xff0000);
 
     // Stop engine sound, play crash sound

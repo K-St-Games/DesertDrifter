@@ -25,6 +25,17 @@ export const TUNING = {
   firstSpawnDelayMs: 2000,
 };
 
+// UFO boss tunables (timers are counted in fixed steps, 60 per second)
+export const UFO = {
+  scoreThreshold: 2000,
+  hovers: 3, // random hover points before locking on
+  attacks: 3,
+  chargeSteps: 180, // warning beam
+  fireSteps: 60, // deadly beam
+  beamHalfWidth: 40,
+  respawnMs: [10000, 20000],
+};
+
 export function createGameConfig(scenes) {
   return {
     type: Phaser.AUTO,

@@ -229,7 +229,7 @@ Size key: **S** up to half a day, **M** about a day, **L** two to three days, in
 | WP2.2 | `EntityFactory` port: hitboxes from the `collision` block; overlay draws `body.halfWidth`; tree centre Y to 0.75 (verify with overlay) | M | Overlay circles match physics on every circle entity | ☑ branch `feat/data-driven` (circles centred, overlay uses `halfWidth`; tree box kept at centre Y 0.75) |
 | WP2.3 | `HighScoreManager` hardening (its extraction was done in WP1.1): guarded `JSON.parse`; disable Phaser key capture while the initials form is visible (issue 11) | S | Corrupt `highScores` starts a clean game; W/A/S/D, arrows and Space can be typed as initials | ☑ branch `feat/data-driven` |
 | WP2.4 | `SpawnSystem` (extracted in WP1.1): weighted pool, `spawnZone`, `points` from the table; minimum gap between spawns scaled by speed | M | Over 1,000 spawns, each type lands within 3 points of its weight share | ☑ branch `feat/data-driven` (weighted pool, zones and points from the table; the minimum-gap rule is deferred with the content guardrails) |
-| WP2.5 | `UfoSystem` (extracted in WP1.1): step-based timers (with WP1.3) and tunables in config | S | Identical UFO cycle to baseline (Appendix D timeline) | ☐ |
+| WP2.5 | `UfoSystem` (extracted in WP1.1): step-based timers (with WP1.3) and tunables in config | S | Identical UFO cycle to baseline (Appendix D timeline) | ☑ branch `feat/polish-docs` |
 | WP2.6 | Test hooks: overlay (`0`), `render_game_to_text`, `advanceTime`, `?seed=`. Seeding must replace `Math.random` (Phaser's `Between` and `FloatBetween` use it, so `Phaser.Math.RND.sow` has no effect on them), or the game must move to `Phaser.Math.RND` | S | Same seed and steps produce identical state snapshots | ◐ `?seed=`, `render_game_to_text` and the `0` overlay are done; `advanceTime` is not (the sim uses the real clock) |
 | WP2.7 | Hitbox balance pass using Appendix A.3 (recompute it on the baked sprites). Targets: player boxes about 80–90% of visible art area (fork 76–79%, redux 106–108%); obstacles 75–90% | M | Playtest log: 10 runs, no phantom or missed hits | ☐ |
 | WP2.8 | Prove the model: add the armadillo to the table at `spawnWeight: 0`; temporarily raise the weight to confirm it spawns, scores and collides, then leave it at 0 (no new obstacle ships) | S | No engine code touched; the armadillo does not appear in normal play | ☑ branch `feat/data-driven` (armadillo in the table at weight 0) |
@@ -249,9 +249,9 @@ Nothing in this phase is scheduled. The rows stay so the design work is not lost
 
 | ID | Work package | Size | Acceptance | Status |
 |---|---|---|---|---|
-| WP4.1 | Feedback: crash shake and flash, off-road dust, boost speed lines | M | Reviewed in a playtest | ☐ |
-| WP4.2 | UX: pause (`P`/`Esc`), persisted mute, how-to-play card, game-over screen | M | Works on desktop and touch | ☐ |
-| WP4.3 | Docs: README (run, structure, "add an obstacle" guide), PLAN status update, changelog | S | A new contributor can add an obstacle from the README alone | ☐ |
+| WP4.1 | Feedback: crash shake and flash, off-road dust, boost speed lines | M | Reviewed in a playtest | ◐ crash shake done; dust and speed lines not |
+| WP4.2 | UX: pause (`P`/`Esc`), persisted mute, how-to-play card, game-over screen | M | Works on desktop and touch | ◐ pause, persisted mute and a controls hint done; game-over screen unchanged |
+| WP4.3 | Docs: README (run, structure, "add an obstacle" guide), PLAN status update, changelog | S | A new contributor can add an obstacle from the README alone | ☑ branch `feat/polish-docs` |
 | WP4.4 | Optional: Playwright smoke using the hooks | M | Only if regressions become a problem | ☐ |
 | WP4.5 | Release: tag `v1.0.0`; cache-bust `?v=` on `main.js`; live-URL verification | S | Section 13 checklist passes | ☐ |
 
@@ -500,3 +500,4 @@ Purpose: prove the module split and the Phaser upgrade change no behavior, and r
 - 2026-09-30 (PR2): fixed 60 Hz step, audio resume on first input, music loaded after start, `M` mute, base-speed ramp, `resetRun` (speed, spawn grace, UFO timer), crash re-entry guard, 500 ms restart lockout, road centred (`tilePositionX` 272). Measured at 120 fps: road 129 px/s (was 240), first obstacle 1.8 s after a restart. Issues 1, 2, 3, 4, 5, 7, 9 and 12 fixed.
 - 2026-09-30 (PR3): art pipeline. Originals moved to `art/source/`; `tools/build_sprites.py` bakes sprites at on-screen size onto `art/palette.hex` (48 colours) as indexed PNGs; `tools/audit_sprites.py` enforces palette, alpha, size and margin. Art payload 47 KB (was 4.2 MB); entity scale is 1; on-screen hitboxes unchanged (within 0.1 px). Repo hygiene done except Pages and the backup ref.
 - 2026-09-30 (PR4): data-driven core. `src/entities.js` table (files, points, spawn weights and zones, hitboxes, behaviors), `EntityFactory`, table-driven spawning, `behaviors.js`, `CollisionDebug` (key `0`), `?seed=`, `render_game_to_text`, guarded high-score parse, key capture suspended while the initials form is open. Issues 6, 8 and 11 fixed. Open in Phase 2: WP2.5 (UFO tunables), WP2.7 (hitbox balance needs a human playtest).
+- 2026-09-30 (PR5): UFO tunables in `config.js`, pause (`P`), persisted mute, crash shake, controls hint, README rewritten. Remaining work needs the owner: WP1.9 (phone test), WP1.11 (enable Pages, delete backup ref), WP2.7 (hitbox playtest), WP4.5 (release).

@@ -1,5 +1,7 @@
 // The UFO boss: approach -> lock on -> charge (warning beam) -> fire (deadly beam), three attacks, then leave.
 // Logic and timings are unchanged from the original game.js (frame-based timers).
+import { UFO } from '../config.js';
+
 export class UfoSystem {
   constructor(scene, { factory, onBeamHit }) {
     this.scene = scene;
@@ -28,7 +30,7 @@ export class UfoSystem {
     const ufo = this.sprite;
     const beam = this.beam;
 
-    if (score >= 2000 && !this.active && !gameOver) {
+    if (score >= UFO.scoreThreshold && !this.active && !gameOver) {
       // First time spawn check
       if (this.nextSpawnTime === 0) this.nextSpawnTime = scene.time.now;
 
@@ -38,7 +40,7 @@ export class UfoSystem {
         ufo.setPosition(car.x, -100);
         ufo.setVisible(true);
         this.timer = 0;
-        this.hoverCount = 3; // Hover 3 times
+        this.hoverCount = UFO.hovers;
         this.attackCount = 0;
 
         // Initial random target
@@ -93,7 +95,7 @@ export class UfoSystem {
           beam.fillPath();
         }
 
-        if (this.timer > 180) { // 3 Seconds (60fps * 3)
+        if (this.timer > UFO.chargeSteps) { // 3 seconds
           this.state = 'firing';
           this.timer = 0;
         }
@@ -111,16 +113,16 @@ export class UfoSystem {
         beam.fillPath();
 
         // Check Collision
-        if (car.x > ufo.x - 40 && car.x < ufo.x + 40) {
+        if (car.x > ufo.x - UFO.beamHalfWidth && car.x < ufo.x + UFO.beamHalfWidth) {
           this.onBeamHit(car, ufo);
         }
 
-        if (this.timer > 60) { // 1 Second duration
+        if (this.timer > UFO.fireSteps) { // 1 second
           this.attackCount++;
-          if (this.attackCount < 3) {
+          if (this.attackCount < UFO.attacks) {
             // Try again
             this.state = 'approaching';
-            this.hoverCount = 3;
+            this.hoverCount = UFO.hovers;
             this.timer = 0;
             // Pick new target immediately
             this.targetX = Phaser.Math.Between(100, 380);
@@ -138,7 +140,7 @@ export class UfoSystem {
           ufo.setVisible(false);
           this.state = 'idle';
           // Return in 10-20 seconds
-          this.nextSpawnTime = scene.time.now + Phaser.Math.Between(10000, 20000);
+          this.nextSpawnTime = scene.time.now + Phaser.Math.Between(...UFO.respawnMs);
         }
       }
     } else {
