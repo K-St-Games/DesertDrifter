@@ -1,0 +1,12 @@
+{
+  "name": "desert-drifter",
+  "private": true,
+  "type": "module",
+  "description": "Desert Drifter arcade game (Phaser 3.90, no build step). This file only marks the tree as ESM so bare test runs resolve; there is intentionally no build, no bundler, and no runtime dependency.",
+  "scripts": {
+    "test": "node --test \"tests/*.mjs\" --test-reporter=spec",
+    "test:replay": "node tools/replay/check.mjs",
+    "audit": "python3 tools/audit_sprites.py",
+    "validate": "node tools/validate_entities.mjs"
+  }
+}

@@ -1,8 +1,8 @@
 ---
 title: "DesertDrifter Standards Alignment and Stability Plan"
 description: "Orchestration-ready plan: fix the four open gameplay issues, put the simulation under one controlled clock and RNG, and add small safeguards, without a rewrite or new content."
-status: draft
-status_detail: "ready for orchestration once owner decisions D1-D3 are answered"
+status: landed
+status_detail: "all work packages merged as PRs #9-#22 on 2026-10-03; owner decisions answered (D1 keep 60Hz, D2 add e8c32a yellow, D3 Phase B approved, C4 declined); ISSUE-1..4 closed"
 owner: "K_St_Games Team"
 author: "Codex (assessment), revised by Claude for orchestration handoff"
 created: 2026-10-03
