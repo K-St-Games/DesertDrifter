@@ -39,7 +39,7 @@ let roadY = 0;
 let acc = 0;
 let t = 0;
 let stepsTotal = 0;
-let obstacle = null; // { x, y } once "spawned" at firstSpawnDelayMs
+let obstacle = null; // { x, y } once "spawned" after firstSpawnDelaySteps
 const frames = [];
 
 for (let f = 0; f < totalFrames; f++) {
@@ -53,7 +53,7 @@ for (let f = 0; f < totalFrames; f++) {
     stepsTotal++;
     speed = Math.min(speed + TUNING.speedIncrement, TUNING.maxBaseSpeed);
     roadY -= speed * 2;
-    if (t >= TUNING.firstSpawnDelayMs && obstacle === null) obstacle = { x: 240, y: -50 };
+    if (stepsTotal > TUNING.firstSpawnDelaySteps && obstacle === null) obstacle = { x: 240, y: -50 };
     if (obstacle !== null) obstacle.y += speed * 2; // SpawnSystem.update: child.y += currentSpeed * 2
   }
   frames.push({
