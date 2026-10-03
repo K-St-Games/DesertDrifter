@@ -12,8 +12,10 @@
 //
 // Serve the repo first: python3 -m http.server 8080   (plain server, NOT Live Server)
 
-import { spawn, spawnSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { writeFileSync, accessSync, constants, mkdtempSync, rmSync } from 'node:fs';
+import { delimiter, join, isAbsolute } from 'node:path';
+import { tmpdir } from 'node:os';
 import net from 'node:net';
 
 function arg(name, def = null) {
@@ -39,10 +41,10 @@ function findChrome() {
   const candidates = ['chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable', 'chrome',
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'];
   for (const c of candidates) {
-    try {
-      const r = c.includes('/') ? null : spawnSync('command', ['-v', c], { encoding: 'utf8' });
-      if (c.includes('/') || (r.status === 0 && r.stdout.trim())) return c;
-    } catch { /* try next */ }
+    const paths = isAbsolute(c) ? [c] : (process.env.PATH || '').split(delimiter).map((dir) => join(dir, c));
+    for (const path of paths) {
+      try { accessSync(path, constants.X_OK); return path; } catch { /* try next */ }
+    }
   }
   return null;
 }
@@ -64,20 +66,26 @@ async function main() {
     process.exit(2);
   }
   const port = await freePort();
+  const profile = mkdtempSync(join(tmpdir(), 'desert-measure-'));
   const args = [
+    `--user-data-dir=${profile}`,
     '--headless=new', `--remote-debugging-port=${port}`,
     '--no-first-run', '--no-default-browser-check', '--disable-hang-monitor',
     '--window-size=500,750', 'about:blank',
   ];
-  try { if (typeof process.getuid === 'function' && process.getuid() === 0) args.push('--no-sandbox'); } catch { /* non-posix */ }
+  try { if (typeof process.getuid === 'function' && (process.getuid() === 0 || process.argv.includes('--no-sandbox'))) args.push('--no-sandbox'); } catch { /* non-posix */ }
   const child = spawn(bin, args, { stdio: 'ignore' });
+  let launchError = null;
+  child.on('error', (err) => { launchError = err; });
   const kill = () => { try { child.kill(); } catch { /* already gone */ } };
+  child.once('exit', () => rmSync(profile, { recursive: true, force: true }));
   process.on('exit', kill);
   process.on('SIGINT', () => { kill(); process.exit(130); });
 
   // Wait for the DevTools endpoint.
   let targets = null;
   for (let i = 0; i < 150; i++) {
+    if (launchError) throw launchError;
     try {
       const res = await fetch(`http://127.0.0.1:${port}/json/list`);
       if (res.ok) { targets = await res.json(); break; }
@@ -95,7 +103,8 @@ async function main() {
   ws.onmessage = (ev) => {
     const msg = JSON.parse(String(ev.data));
     if (msg.id !== undefined && pending.has(msg.id)) {
-      const { resolve, reject } = pending.get(msg.id);
+      const { resolve, reject, timeout } = pending.get(msg.id);
+      clearTimeout(timeout);
       pending.delete(msg.id);
       if (msg.error) reject(new Error(JSON.stringify(msg.error)));
       else resolve(msg.result);
@@ -103,9 +112,9 @@ async function main() {
   };
   const send = (method, params = {}) => new Promise((resolve, reject) => {
     const msgId = ++id;
-    pending.set(msgId, { resolve, reject });
+    const timeout = setTimeout(() => { if (pending.has(msgId)) { pending.delete(msgId); reject(new Error(`CDP timeout: ${method}`)); } }, 30000);
+    pending.set(msgId, { resolve, reject, timeout });
     ws.send(JSON.stringify({ id: msgId, method, params }));
-    setTimeout(() => { if (pending.has(msgId)) { pending.delete(msgId); reject(new Error(`CDP timeout: ${method}`)); } }, 30000);
   });
   const evaluate = async (expression) => {
     const res = await send('Runtime.evaluate', { expression, returnByValue: true });
