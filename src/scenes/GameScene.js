@@ -23,6 +23,15 @@ export class GameScene extends Phaser.Scene {
     this.tick = 0; // WP-B1: single gameplay clock, +1 per step(); frozen while paused
     this.stepAccumulator = 0;
 
+    // WP-A4: render interpolation state (display only, never collision).
+    // renderPrev/renderCurr are sim-position snapshots around the last step;
+    // update() blends game-object render state between them by renderAlpha,
+    // which is always in [0, 1]. Bodies are never touched, so collisions and
+    // the hitbox overlay always see exact sim positions.
+    this.renderPrev = null;
+    this.renderCurr = null;
+    this.renderAlpha = null;
+
     // WP-B3: one gameplay RNG per run, shared by spawning, behaviors and UFO
     // targets in deterministic draw order. Seeded from ?seed= (stashed on
     // window by main.js) or from Math.random() when absent. Cosmetic shake
@@ -184,6 +193,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    // WP-A4: restore exact sim positions before anything reads them. The
+    // previous frame ended with display-interpolated values in the game
+    // objects; physics preUpdate, the overlay and every step() below must see
+    // the simulation, never the display blend.
+    this.restoreSimPositions();
+
     this.debug.update([[this.car, 0x00ff66], [this.trailer, 0x00ccff], [this.ufo.active ? this.ufo.sprite : null, 0xff00ff], ...this.spawner.group.getChildren().map((o) => [o, 0xff3355])]);
 
     // WP-B4: sample input once per rendered frame. Every step() below consumes
@@ -229,9 +244,21 @@ export class GameScene extends Phaser.Scene {
     let stepsThisFrame = 0;
     while (this.stepAccumulator >= TUNING.stepMs && !this.gameOver) {
       this.stepAccumulator -= TUNING.stepMs;
+      // WP-A4: sim snapshot before the step. After the loop renderPrev is the
+      // state before the LAST step, so the display blend renders between the
+      // two most recent sim states at any refresh rate.
+      this.renderPrev = this.snapshotRenderPositions();
       this.step(input);
       stepsThisFrame++;
     }
+    if (stepsThisFrame > 0) this.renderCurr = this.snapshotRenderPositions();
+    // WP-A4: display-only interpolation. The sim lives on in renderPrev/
+    // renderCurr and the physics bodies; only game-object render state is
+    // blended toward the next step, so 0/1/2-step frames render even motion.
+    // alpha is the fraction of the way to the next step, always in [0, 1].
+    this.applyRenderInterpolation(Math.min(Math.max(this.stepAccumulator / TUNING.stepMs, 0), 1));
+    // WP-A0 probe: record the rendered frame AFTER interpolation so the
+    // buffer reflects what is on screen (that is the metric A4 improves).
     if (this.measureEnabled) this.recordMeasureFrame(stepsThisFrame);
   }
 
@@ -347,19 +374,96 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  // --- WP-A4: display-only render interpolation ---
+  //
+  // Proven cause of ISSUE-4 is (b): the fixed 60 Hz step runs 0, 1 or 2 times
+  // per rendered frame, so at 120 Hz+ on-screen motion alternates 0/~2.2 px
+  // (WP-A0: 1.09+-1.09 px/frame; node model in the PR description reproduces
+  // it and shows integer rounding alone cannot fix it). Cause (a) is bounded
+  // by construction: road and sprites advance by identical float increments,
+  // so differential rounding is <= 1 px, never 0-vs-2.2 px frames. Cause (c)
+  // was resolved by WP-B2 (world.update runs once per step, inside step()).
+  //
+  // The sim is never touched: step() still writes exact positions (which the
+  // B4 tests assert), physics preUpdate syncs bodies from restored sim
+  // positions, and only game-object render state is blended after the last
+  // step of a frame, then restored before the next frame's steps.
+
+  // Every display-interpolated mover: sim-driven objects whose game-object
+  // position is render state. Bodies are NOT included: the hitbox overlay
+  // draws sprite.body, so it always tracks collision truth. Missing parts are
+  // skipped so stubbed scenes (tests) can drive the real update()/step().
+  renderSprites() {
+    const out = [];
+    if (this.car) out.push(this.car);
+    if (this.trailer) out.push(this.trailer);
+    if (this.ufo && this.ufo.sprite) out.push(this.ufo.sprite);
+    const group = this.spawner && this.spawner.group;
+    if (group && typeof group.getChildren === 'function') {
+      for (const child of group.getChildren()) if (child) out.push(child);
+    }
+    return out;
+  }
+
+  // Exact sim positions. Game objects hold sim values at every capture point
+  // (post-step or post-restore), so this is a copy-out of the simulation.
+  snapshotRenderPositions() {
+    const snap = { roadY: this.road ? this.road.tilePositionY : 0, sprites: new Map() };
+    for (const o of this.renderSprites()) snap.sprites.set(o, { x: o.x, y: o.y });
+    return snap;
+  }
+
+  // Undo the display blend. Runs at the top of update() and nowhere else, so
+  // steps and physics always run on exact sim positions. Entries for
+  // destroyed obstacles are skipped (they left the group); objects spawned
+  // after the snapshot are already at sim positions and need no restore.
+  restoreSimPositions() {
+    const curr = this.renderCurr;
+    if (!curr) return;
+    if (this.road) this.road.tilePositionY = curr.roadY;
+    for (const [o, p] of curr.sprites) {
+      if (o && o.active !== false) { o.x = p.x; o.y = p.y; }
+    }
+  }
+
+  // Blend game-object render state between the last two sim states.
+  // Display-only: bodies and sim accumulators are never written, so
+  // collisions resolve on exact positions. Obstacles spawned after the prev
+  // snapshot (missing from it) render at their exact sim position.
+  applyRenderInterpolation(alpha) {
+    this.renderAlpha = alpha;
+    const prev = this.renderPrev;
+    const curr = this.renderCurr;
+    if (!prev || !curr) return;
+    if (this.road) this.road.tilePositionY = prev.roadY + (curr.roadY - prev.roadY) * alpha;
+    for (const [o, c] of curr.sprites) {
+      if (!o || o.active === false) continue;
+      const p = prev.sprites.get(o);
+      const px = p ? p.x : c.x;
+      const py = p ? p.y : c.y;
+      o.x = px + (c.x - px) * alpha;
+      o.y = py + (c.y - py) * alpha;
+    }
+  }
+
   // Compact state for automated tests and debugging (window.render_game_to_text)
   renderGameToText() {
     const r = (v) => Math.round(v * 10) / 10;
+    // WP-A4: report simulation positions, not the display blend. After an
+    // update() with interpolation the game objects hold blended render
+    // values, while renderCurr holds the exact sim; fall back to the objects
+    // when no frame has run (e.g. direct step() flows in tests).
+    const sim = (o) => (this.renderCurr && this.renderCurr.sprites.get(o)) || o;
     return JSON.stringify({
       mode: this.gameOver ? 'game_over' : 'running',
       tick: this.tick,
       paused: this.paused,
       score: this.score,
       speed: r(this.speed),
-      car: { x: r(this.car.x), y: r(this.car.y) },
-      trailer: { x: r(this.trailer.x), y: r(this.trailer.y) },
-      ufo: { active: this.ufo.active, state: this.ufo.state, x: r(this.ufo.sprite.x), y: r(this.ufo.sprite.y) },
-      obstacles: this.spawner.group.getChildren().filter((o) => o.active).map((o) => ({ id: o.texture.key, x: r(o.x), y: r(o.y) })),
+      car: { x: r(sim(this.car).x), y: r(sim(this.car).y) },
+      trailer: { x: r(sim(this.trailer).x), y: r(sim(this.trailer).y) },
+      ufo: { active: this.ufo.active, state: this.ufo.state, x: r(sim(this.ufo.sprite).x), y: r(sim(this.ufo.sprite).y) },
+      obstacles: this.spawner.group.getChildren().filter((o) => o.active).map((o) => ({ id: o.texture.key, x: r(sim(o).x), y: r(sim(o).y) })),
     });
   }
 
@@ -418,6 +522,9 @@ export class GameScene extends Phaser.Scene {
     this.tick = 0; // new run restarts the gameplay clock (spawner/UFO derive from it)
     this.rng.reset(this.seedText); // WP-B3: same seed + inputs => same sequence
     this.stepAccumulator = 0;
+    this.renderPrev = null; // WP-A4: old-run snapshots must not leak into the new run
+    this.renderCurr = null;
+    this.renderAlpha = null;
 
     // Restart engine sound
     this.audio.resetEngine();
