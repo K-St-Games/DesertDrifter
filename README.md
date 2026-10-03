@@ -19,6 +19,8 @@ python3 -m http.server 8080
 
 Open <http://localhost:8080/>. Add `?debug` to expose `window.game` in the console, `?seed=<text>` for repeatable randomness.
 
+With `?debug`, two extra hooks exist for replay checks: `window.advanceTime(ms, input)` runs exactly `round(ms / stepMs)` gameplay steps (60 per 1000 ms) with real-time updates suspended — `input` is one per-step input object reused every step, or a function `(upcomingTick, stepIndex) => input` for scripted runs (default: neutral). `window.render_game_to_text()` returns the sim snapshot as JSON: `mode`, `tick` (steps), `paused`, `seed`, `rngState`, spawn countdown (`nextSpawnTick`, `spawnInTicks`), `score`, `speed`, `car`/`trailer`/`ufo`/`obstacles` positions in px, and UFO timers in steps. Two runs with the same seed and the same scripted inputs produce identical snapshots.
+
 ## Controls
 
 Arrows or WASD to steer, Up/W to boost (x2 score multiplier at speed), Down/S to brake. Touch: left/right half steers, top boosts, bottom brakes. `M` mutes, `P` pauses, `0` draws hitboxes.

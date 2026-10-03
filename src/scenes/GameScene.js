@@ -152,7 +152,19 @@ export class GameScene extends Phaser.Scene {
 
     this.debug = new CollisionDebug(this);
     window.render_game_to_text = () => this.renderGameToText();
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => delete window.render_game_to_text);
+    // WP-B5: manual step driver for replay/determinism checks. Debug-only like
+    // window.game in main.js: never exposed on player builds.
+    try {
+      if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')) {
+        window.advanceTime = (ms, input) => this.advanceTime(ms, input);
+      }
+    } catch {
+      // Non-browser (node tests): scene.advanceTime() is still callable directly.
+    }
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      delete window.render_game_to_text;
+      delete window.advanceTime;
+    });
 
     // High score entry form (DOM)
     this.form = new HighScoreForm({
@@ -331,6 +343,38 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.update(0, TUNING.stepMs);
   }
 
+  // --- WP-B5: manual advancement and richer snapshot ---
+  //
+  // advanceTime(ms, input) runs exactly round(ms / stepMs) gameplay steps, so
+  // advanceTime(1000) is 60 steps. It calls step() directly with no rAF, no
+  // accumulator and no wall-clock reads: real-time updates are suspended. The
+  // Arcade world is already detached from the render loop (disableUpdate in
+  // create()) and step() drives it once per tick, so nothing else advances and
+  // the step accumulator is left untouched.
+  //
+  // `input` is the per-step input object consumed by step(): either one object
+  // reused for every step (default: neutral — no steer, no boost/brake) or a
+  // function (upcomingTick, stepIndex) => object for scripted runs. Like
+  // update(), it never steps while paused or after a game-over crash, so it
+  // stops early in those states. Returns the steps actually run.
+  advanceTime(ms, input) {
+    const steps = Math.round(ms / TUNING.stepMs);
+    // Start from exact sim: undo any display blend the last rendered frame
+    // left in the game objects (the same restore update() runs before steps).
+    this.restoreSimPositions();
+    const NEUTRAL = { steer: 0, speedDelta: 0, restart: false, pause: false, mute: false };
+    let ran = 0;
+    for (let i = 0; i < steps; i++) {
+      if (this.paused || this.gameOver) break;
+      const stepInput = typeof input === 'function' ? input(this.tick + 1, i) : (input || NEUTRAL);
+      this.renderPrev = this.snapshotRenderPositions();
+      this.step(stepInput);
+      ran++;
+    }
+    if (ran > 0) this.renderCurr = this.snapshotRenderPositions();
+    return ran;
+  }
+
   // --- WP-A4: display-only render interpolation ---
   //
   // Proven cause of ISSUE-4 is (b): the fixed 60 Hz step runs 0, 1 or 2 times
@@ -403,7 +447,18 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  // Compact state for automated tests and debugging (window.render_game_to_text)
+  // Compact state for automated tests and debugging (window.render_game_to_text).
+  //
+  // Units: positions in game px, timers and countdowns in ticks (1 tick = 1
+  // step, stepMs ~= 16.67 ms at 60 Hz). Fields: mode/tick/paused/score/speed
+  // are run state on the gameplay clock; seed is the ?seed= text (null when
+  // unseeded); rngState is the gameplay RNG's uint32 state (one hash advance
+  // per float()/int() draw — equal states at equal ticks replay identically);
+  // nextSpawnTick/spawnInTicks are the absolute tick and the countdown
+  // (nextSpawnTick - tick) of the next obstacle spawn; ufo.timerSteps,
+  // ufo.attackCount, ufo.hoverCount and ufo.nextSpawnTick/ufo.spawnInTicks
+  // are the UFO boss timers in steps plus its absolute/countdown respawn tick
+  // (0/negative respawn means not yet scheduled).
   renderGameToText() {
     const r = (v) => Math.round(v * 10) / 10;
     // WP-A4: report simulation positions, not the display blend. After an
@@ -411,15 +466,31 @@ export class GameScene extends Phaser.Scene {
     // values, while renderCurr holds the exact sim; fall back to the objects
     // when no frame has run (e.g. direct step() flows in tests).
     const sim = (o) => (this.renderCurr && this.renderCurr.sprites.get(o)) || o;
+    const spawnNext = this.spawner.nextSpawnTick ?? 0;
+    const ufoNext = this.ufo.nextSpawnTick ?? 0;
     return JSON.stringify({
       mode: this.gameOver ? 'game_over' : 'running',
       tick: this.tick,
       paused: this.paused,
+      seed: this.seedText ?? null,
+      rngState: this.rng ? this.rng.state : null,
+      nextSpawnTick: spawnNext,
+      spawnInTicks: spawnNext - this.tick,
       score: this.score,
       speed: r(this.speed),
       car: { x: r(sim(this.car).x), y: r(sim(this.car).y) },
       trailer: { x: r(sim(this.trailer).x), y: r(sim(this.trailer).y) },
-      ufo: { active: this.ufo.active, state: this.ufo.state, x: r(sim(this.ufo.sprite).x), y: r(sim(this.ufo.sprite).y) },
+      ufo: {
+        active: this.ufo.active,
+        state: this.ufo.state,
+        x: r(sim(this.ufo.sprite).x),
+        y: r(sim(this.ufo.sprite).y),
+        timerSteps: this.ufo.timer ?? 0,
+        attackCount: this.ufo.attackCount ?? 0,
+        hoverCount: this.ufo.hoverCount ?? 0,
+        nextSpawnTick: ufoNext,
+        spawnInTicks: ufoNext - this.tick,
+      },
       obstacles: this.spawner.group.getChildren().filter((o) => o.active).map((o) => ({ id: o.texture.key, x: r(sim(o).x), y: r(sim(o).y) })),
     });
   }
