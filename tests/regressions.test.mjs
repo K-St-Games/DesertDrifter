@@ -213,6 +213,7 @@ function steppedScene({ steerScript = () => ({ left: false, right: false }), obs
   const trailer = { x: 240, y: 500, angle: 0, setAngle(a) { this.angle = a; } };
   const scene = Object.assign(new GameScene(), {
     tick: 0,
+    rng: createGameplayRng('step-test'),
     speed: TUNING.baseSpeed,
     score: 0,
     gameOver: false,
@@ -563,4 +564,18 @@ test('WP-B3: restartGame resets the gameplay stream for replayability', () => {
     freshDraws(),
   );
   assert.deepEqual(spawnerCalls, ['clear', ['start', 0]]);
+});
+
+
+test('off-road movement is identical despite different cosmetic random draws', () => {
+  const run = (cosmeticValue) => {
+    const { scene, car, trailer } = steppedScene();
+    scene.rng = createGameplayRng('off-road');
+    car.x = 100;
+    trailer.x = 100;
+    globalThis.Phaser.Math.Between = () => cosmeticValue;
+    runFrames(scene, 30, TUNING.stepMs);
+    return { car: [car.x, car.y], trailer: [trailer.x, trailer.y], rng: scene.rng.state };
+  };
+  assert.deepEqual(run(-2), run(2));
 });

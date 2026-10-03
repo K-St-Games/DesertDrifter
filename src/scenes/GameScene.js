@@ -25,7 +25,7 @@ export class GameScene extends Phaser.Scene {
 
     // WP-B3: one gameplay RNG per run, shared by spawning, behaviors and UFO
     // targets in deterministic draw order. Seeded from ?seed= (stashed on
-    // window by main.js) or from Math.random() when absent. Cosmetic shake
+    // window by main.js) or from Math.random() when absent. Cosmetic HUD shake
     // and the music offset below stay on Phaser.Math (Math.random) and never
     // consume this stream.
     this.seedText = (typeof window !== 'undefined' && window.__DESERT_DRIFTER_SEED__ !== undefined)
@@ -286,9 +286,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     // --- Rough Terrain Shake ---
+    // These offsets move physics bodies, so they belong to the seeded gameplay stream.
     if (this.car.x < ROAD.left || this.car.x > ROAD.right) {
-      this.car.x += Phaser.Math.Between(-2, 2);
-      this.car.y += Phaser.Math.Between(-2, 2);
+      this.car.x += this.rng.int(-2, 2);
+      this.car.y += this.rng.int(-2, 2);
     }
 
     // --- 3. Trailer Physics ---
@@ -298,8 +299,8 @@ export class GameScene extends Phaser.Scene {
     this.trailer.y = Phaser.Math.Linear(this.trailer.y, targetY, 0.08);
 
     if (this.trailer.x < ROAD.left || this.trailer.x > ROAD.right) {
-      this.trailer.x += Phaser.Math.Between(-2, 2);
-      this.trailer.y += Phaser.Math.Between(-2, 2);
+      this.trailer.x += this.rng.int(-2, 2);
+      this.trailer.y += this.rng.int(-2, 2);
     }
 
     const sway = (this.car.x - this.trailer.x) * 0.30;
