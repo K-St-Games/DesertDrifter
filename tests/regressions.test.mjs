@@ -1004,3 +1004,243 @@ test('WP-A4: restartGame clears interpolation state', () => {
     delete globalThis.Phaser.Math;
   }
 });
+
+// --- WP-B5: manual advancement and richer snapshot ---
+//
+// window.advanceTime(ms, input) (?debug only; scene.advanceTime under test)
+// runs round(ms / stepMs) whole steps with no rAF, no accumulator and no
+// wall-clock reads. render_game_to_text gains tick, paused, seed text, RNG
+// state, spawn countdowns and UFO timers (units: px for positions, ticks for
+// timers). Same seed + same scripted inputs => identical snapshot after 30 s
+// of simulated time.
+
+function simScene(seedText) {
+  // Real gameplay systems (spawn, UFO, RNG) with stubbed rendering/audio, like
+  // steppedScene() above: every gameplay draw comes from the scene RNG, so
+  // two scenes with the same seed and inputs must reach identical snapshots.
+  globalThis.Phaser.Math = {
+    Between: (lo) => lo, // cosmetic-only draws; gameplay uses the scene RNG
+    Linear: (a, b, t) => a + (b - a) * t,
+    Distance: { Between: (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1) },
+  };
+  const kids = [];
+  const group = {
+    children: { iterate(fn) { [...kids].forEach(fn); } },
+    getChildren: () => kids.filter((o) => o.active),
+    clear() { kids.length = 0; },
+  };
+  const factory = {
+    createInGroup: (grp, type, x, y) => {
+      const o = {
+        texture: { key: type }, x, y, active: true, scored: false, vx: 0,
+        setVelocityX(v) { this.vx = v; },
+        setAngularVelocity() {},
+        destroy() {
+          this.active = false;
+          const i = kids.indexOf(this);
+          if (i >= 0) kids.splice(i, 1);
+        },
+      };
+      kids.push(o);
+      return o;
+    },
+    createSprite: (id, x, y) => ({
+      texture: { key: id }, x, y, active: true, angle: 0,
+      setVisible() {}, setDepth() {},
+      setPosition(px, py) { this.x = px; this.y = py; },
+      setTint() {}, clearTint() {},
+    }),
+  };
+  const scene = Object.assign(new GameScene(), {
+    tick: 0,
+    speed: TUNING.baseSpeed,
+    score: 0,
+    gameOver: false,
+    gameOverAt: 0,
+    paused: false,
+    stepAccumulator: 0,
+    renderPrev: null,
+    renderCurr: null,
+    renderAlpha: null,
+    seedText,
+    rng: createGameplayRng(seedText),
+    road: { tilePositionY: 0 },
+    car: {
+      x: 240, y: 400, angle: 0, vx: 0,
+      setVelocity() { this.vx = 0; },
+      setVelocityX(v) { this.vx = v; },
+      setAngle(a) { this.angle = a; },
+      setTint() {}, clearTint() {},
+      setPosition(x, y) { this.x = x; this.y = y; },
+    },
+    trailer: {
+      x: 240, y: 500, angle: 0,
+      setAngle(a) { this.angle = a; },
+      setTint() {}, clearTint() {},
+      setPosition(x, y) { this.x = x; this.y = y; },
+    },
+    audio: {
+      updateEngineSpeed() {}, updateUfo() {},
+      silenceForGameOver() {}, playCrash() {}, resetEngine() {},
+    },
+    scoreText: { setText() {} },
+    multiplierText: { setVisible() {}, setText() {}, setStyle() {}, x: 0, y: 0 },
+    cameras: { main: { shake() {} } },
+    highScoreCalls: 0,
+    add: {
+      graphics: () => ({
+        setDepth() {}, clear() {}, fillStyle() {},
+        beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, fillPath() {},
+      }),
+    },
+    physics: {
+      pause() {}, resume() {},
+      add: { group: () => group },
+      world: {
+        update(time, deltaMs) {
+          // One fixed integration per step, like the real Arcade world: car
+          // velocity plus behavior sideways drift on every obstacle.
+          const s = deltaMs / 1000;
+          scene.car.x += scene.car.vx * s;
+          if (scene.car.x > 480) scene.car.x = 480;
+          if (scene.car.x < 0) scene.car.x = 0;
+          for (const o of kids) if (o.active && o.vx) o.x += o.vx * s;
+        },
+      },
+    },
+  });
+  scene.checkHighScore = () => { scene.highScoreCalls++; };
+  scene.spawner = new SpawnSystem(scene, {
+    factory,
+    isGameOver: () => scene.gameOver,
+    onScore: (points) => { scene.score += points; },
+    rng: scene.rng,
+  });
+  scene.spawner.start(0);
+  scene.ufo = new UfoSystem(scene, {
+    factory,
+    onBeamHit: (car, sprite) => scene.hitObstacle(car, sprite),
+    rng: scene.rng,
+  });
+  return scene;
+}
+
+// Deterministic scripted inputs for the replay runs below: a right tap, then
+// a left tap, otherwise neutral. Keyed on the upcoming tick, like the B2 tap.
+const NEUTRAL = { steer: 0, speedDelta: 0, restart: false, pause: false, mute: false };
+function scriptedInput(tick) {
+  return {
+    steer: tick >= 100 && tick < 130 ? 1 : tick >= 200 && tick < 230 ? -1 : 0,
+    speedDelta: 0,
+    restart: false,
+    pause: false,
+    mute: false,
+  };
+}
+
+test('WP-B5: advanceTime(1000) runs exactly 60 steps', () => {
+  const scene = simScene('step-count');
+  try {
+    assert.equal(typeof scene.advanceTime, 'function');
+    scene.stepAccumulator = 7.5; // leftover render time must not leak into manual steps
+    assert.equal(scene.advanceTime(1000), 60);
+    assert.equal(scene.tick, 60);
+    assert.equal(scene.stepAccumulator, 7.5, 'manual steps leave the accumulator untouched');
+    assert.equal(scene.advanceTime(500), 30);
+    assert.equal(scene.tick, 90);
+    assert.equal(scene.advanceTime(0), 0);
+    assert.equal(scene.tick, 90);
+    // Neutral default: no input argument keeps the car centred.
+    scene.advanceTime(1000);
+    assert.equal(scene.tick, 150);
+    assert.equal(scene.car.x, 240);
+    // Function input sees (upcomingTick, stepIndex) for scripted runs.
+    const seen = [];
+    scene.advanceTime(1000, (tick, i) => { seen.push([tick, i]); return NEUTRAL; });
+    assert.equal(seen.length, 60);
+    assert.deepEqual(seen[0], [151, 0]);
+    assert.deepEqual(seen[59], [210, 59]);
+    assert.equal(scene.tick, 210);
+    // Mirrors update(): no steps while paused or after a crash.
+    scene.paused = true;
+    assert.equal(scene.advanceTime(1000), 0);
+    assert.equal(scene.tick, 210);
+    scene.paused = false;
+    scene.gameOver = true;
+    assert.equal(scene.advanceTime(1000), 0);
+    assert.equal(scene.tick, 210);
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
+});
+
+test('WP-B5: same seed + same scripted inputs end on an identical snapshot after 30 s simulated', () => {
+  const run = (seedText) => {
+    const scene = simScene(seedText);
+    let steps = 0;
+    for (let i = 0; i < 30; i++) steps += scene.advanceTime(1000, scriptedInput);
+    return { scene, steps, snapshot: scene.renderGameToText() };
+  };
+  let a;
+  let b;
+  let c;
+  try {
+    a = run('drift-a');
+    b = run('drift-a');
+    c = run('drift-b');
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
+  assert.equal(a.steps, 1800, '30 x 1000 ms ran 1800 steps');
+  assert.equal(b.steps, 1800);
+  assert.equal(c.steps, 1800);
+  assert.equal(a.snapshot, b.snapshot, 'identical snapshot for same seed + inputs');
+  assert.notEqual(a.snapshot, c.snapshot, 'different seed gives a different run');
+  // The replay actually simulated something: full 30 s, scoring, obstacles.
+  const snap = JSON.parse(a.snapshot);
+  assert.equal(snap.mode, 'running');
+  assert.equal(snap.tick, 1800);
+  assert.ok(snap.score > 0, 'obstacles passed and scored');
+  assert.ok(snap.obstacles.length > 0, 'obstacles in flight');
+});
+
+test('WP-B5: snapshot carries tick/paused/seed/RNG/spawn/UFO fields (px, ticks)', () => {
+  const scene = simScene('field-seed');
+  try {
+    scene.advanceTime(3000, scriptedInput); // 180 steps: spawns have happened
+    const snap = JSON.parse(scene.renderGameToText());
+    assert.equal(snap.mode, 'running');
+    assert.equal(snap.tick, 180);
+    assert.equal(snap.paused, false);
+    assert.equal(snap.seed, 'field-seed');
+    assert.ok(Number.isInteger(snap.rngState), 'gameplay RNG state exposed');
+    assert.ok(Number.isInteger(snap.nextSpawnTick), 'absolute spawn tick exposed');
+    assert.equal(snap.spawnInTicks, snap.nextSpawnTick - snap.tick, 'spawn countdown in ticks');
+    assert.ok(snap.spawnInTicks > 0, 'next spawn still ahead');
+    // UFO timers/state in steps (idle here: score has not reached the threshold).
+    assert.equal(snap.ufo.active, false);
+    assert.equal(snap.ufo.state, 'idle');
+    assert.equal(snap.ufo.timerSteps, 0);
+    assert.equal(snap.ufo.attackCount, 0);
+    assert.equal(snap.ufo.hoverCount, 0);
+    assert.equal(snap.ufo.nextSpawnTick, 0, 'first UFO spawn not yet scheduled');
+    assert.equal(snap.ufo.spawnInTicks, -snap.tick);
+    // Positions still in px, obstacles present.
+    for (const o of [snap.car, snap.trailer]) {
+      assert.ok(Number.isFinite(o.x) && Number.isFinite(o.y));
+    }
+    assert.ok(snap.obstacles.length > 0);
+    for (const o of snap.obstacles) {
+      assert.ok(typeof o.id === 'string' && Number.isFinite(o.x) && Number.isFinite(o.y));
+    }
+    // The RNG stream advances as spawns draw: more sim time, new state.
+    const before = snap.rngState;
+    scene.advanceTime(10000, scriptedInput);
+    assert.notEqual(JSON.parse(scene.renderGameToText()).rngState, before);
+    // Paused flag round-trips through the snapshot.
+    scene.paused = true;
+    assert.equal(JSON.parse(scene.renderGameToText()).paused, true);
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
+});
