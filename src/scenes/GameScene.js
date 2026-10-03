@@ -1,4 +1,4 @@
-import { ROAD, TUNING } from '../config.js';
+import { ROAD, TUNING, CAR, TRAILER } from '../config.js';
 import { CollisionDebug } from '../debug/CollisionDebug.js';
 import { EntityFactory } from '../factory/EntityFactory.js';
 import { AudioManager } from '../audio/AudioManager.js';
@@ -91,10 +91,10 @@ export class GameScene extends Phaser.Scene {
     });
 
     // 3. Trailer
-    this.trailer = this.factory.createSprite('trailer', 240, 500);
+    this.trailer = this.factory.createSprite('trailer', TRAILER.startX, TRAILER.startY);
 
     // 4. Car
-    this.car = this.factory.createSprite('car', 240, 400);
+    this.car = this.factory.createSprite('car', CAR.startX, CAR.startY);
     this.car.setCollideWorldBounds(true);
 
     // 5. Controls
@@ -292,8 +292,8 @@ export class GameScene extends Phaser.Scene {
 
     currentSpeed += input.speedDelta;
 
-    if (currentSpeed < 0.5) currentSpeed = 0.5;
-    if (currentSpeed > 3) currentSpeed = 3;
+    if (currentSpeed < TUNING.minSpeed) currentSpeed = TUNING.minSpeed;
+    if (currentSpeed > TUNING.maxSpeed) currentSpeed = TUNING.maxSpeed;
 
     // Update engine pitch based on speed
     this.audio.updateEngineSpeed(currentSpeed);
@@ -301,11 +301,11 @@ export class GameScene extends Phaser.Scene {
     // Update UFO Sound
     this.audio.updateUfo(this.ufo.active && !this.gameOver, this.ufo.state);
 
-    this.road.tilePositionY -= currentSpeed * 2;
+    this.road.tilePositionY -= currentSpeed * TUNING.scrollFactor;
 
     // Multiplier
     let multiplier = 1;
-    if (currentSpeed >= 2) multiplier = 2;
+    if (currentSpeed >= TUNING.multiplierThreshold) multiplier = 2;
 
     this.scoreText.setText('Score: ' + this.score);
 
@@ -324,11 +324,11 @@ export class GameScene extends Phaser.Scene {
     const steer = input.steer; // -1|0|1, sampled once per frame (left wins ties)
 
     if (steer < 0) {
-      this.car.setVelocityX(-200);
-      this.car.setAngle(-5);
+      this.car.setVelocityX(-CAR.speed);
+      this.car.setAngle(-CAR.tiltDeg);
     } else if (steer > 0) {
-      this.car.setVelocityX(200);
-      this.car.setAngle(5);
+      this.car.setVelocityX(CAR.speed);
+      this.car.setAngle(CAR.tiltDeg);
     } else {
       this.car.setAngle(0);
     }
@@ -342,17 +342,17 @@ export class GameScene extends Phaser.Scene {
 
     // --- 3. Trailer Physics ---
     const targetX = this.car.x;
-    const targetY = this.car.y + 120;
-    this.trailer.x = Phaser.Math.Linear(this.trailer.x, targetX, 0.08);
-    this.trailer.y = Phaser.Math.Linear(this.trailer.y, targetY, 0.08);
+    const targetY = this.car.y + TRAILER.followOffsetY;
+    this.trailer.x = Phaser.Math.Linear(this.trailer.x, targetX, TRAILER.lerp);
+    this.trailer.y = Phaser.Math.Linear(this.trailer.y, targetY, TRAILER.lerp);
 
     if (this.trailer.x < ROAD.left || this.trailer.x > ROAD.right) {
       this.trailer.x += this.rng.int(-2, 2);
       this.trailer.y += this.rng.int(-2, 2);
     }
 
-    const sway = (this.car.x - this.trailer.x) * 0.30;
-    this.trailer.setAngle(sway * 3);
+    const sway = (this.car.x - this.trailer.x) * TRAILER.swayFactor;
+    this.trailer.setAngle(sway * TRAILER.swayMultiplier);
 
     // --- 4. UFO Logic ---
     this.ufo.update(this.tick, this.score, this.car, this.gameOver);
@@ -631,8 +631,8 @@ export class GameScene extends Phaser.Scene {
     this.car.clearTint();
     this.trailer.clearTint();
 
-    this.car.setPosition(240, 400);
-    this.trailer.setPosition(240, 500);
+    this.car.setPosition(CAR.startX, CAR.startY);
+    this.trailer.setPosition(TRAILER.startX, TRAILER.startY);
 
     this.spawner.clear();
     this.spawner.start(this.tick); // same grace period as the first run

@@ -19,7 +19,7 @@ export class UfoSystem {
     this.attackCount = 0;
     this.nextSpawnTick = 0;
 
-    const ufo = factory.createSprite('ufo', -100, -100);
+    const ufo = factory.createSprite('ufo', UFO.hiddenX, UFO.spawnY);
     ufo.setVisible(false);
     ufo.setDepth(20); // Top layer
     this.sprite = ufo;
@@ -44,15 +44,15 @@ export class UfoSystem {
       if (tick > this.nextSpawnTick) {
         this.active = true;
         this.state = 'approaching';
-        ufo.setPosition(car.x, -100);
+        ufo.setPosition(car.x, UFO.spawnY);
         ufo.setVisible(true);
         this.timer = 0;
         this.hoverCount = UFO.hovers;
         this.attackCount = 0;
 
         // Initial random target
-        this.targetX = this.rng.int(100, 380);
-        this.targetY = this.rng.int(100, 300);
+        this.targetX = this.rng.int(...UFO.targetX);
+        this.targetY = this.rng.int(...UFO.targetY);
       }
     }
 
@@ -63,20 +63,20 @@ export class UfoSystem {
 
       if (this.state === 'approaching') {
         // Move to random target slowly
-        ufo.x = Phaser.Math.Linear(ufo.x, this.targetX, 0.02);
-        ufo.y = Phaser.Math.Linear(ufo.y, this.targetY, 0.02);
+        ufo.x = Phaser.Math.Linear(ufo.x, this.targetX, UFO.approachLerp);
+        ufo.y = Phaser.Math.Linear(ufo.y, this.targetY, UFO.approachLerp);
 
         // Slow wobble: cosmetic, but driven by tick for determinism
         // (was sin(time.now / 300); tick * stepMs elapses the same ms).
-        ufo.angle = Math.sin((tick * TUNING.stepMs) / 300) * 5;
+        ufo.angle = Math.sin((tick * TUNING.stepMs) / UFO.wobblePeriodMs) * UFO.wobbleAmplitudeDeg;
 
-        if (Phaser.Math.Distance.Between(ufo.x, ufo.y, this.targetX, this.targetY) < 30) {
+        if (Phaser.Math.Distance.Between(ufo.x, ufo.y, this.targetX, this.targetY) < UFO.approachThresholdPx) {
           // Reached target
           this.hoverCount--;
           if (this.hoverCount > 0) {
             // Pick new target
-            this.targetX = this.rng.int(100, 380);
-            this.targetY = this.rng.int(100, 300);
+            this.targetX = this.rng.int(...UFO.targetX);
+            this.targetY = this.rng.int(...UFO.targetY);
           } else {
             this.state = 'locking';
           }
@@ -84,12 +84,12 @@ export class UfoSystem {
       } else if (this.state === 'locking') {
         // Move to above car
         const targetX = car.x;
-        const targetY = car.y - 200;
+        const targetY = car.y - UFO.lockOffsetYPx;
 
-        ufo.x = Phaser.Math.Linear(ufo.x, targetX, 0.05);
-        ufo.y = Phaser.Math.Linear(ufo.y, targetY, 0.05);
+        ufo.x = Phaser.Math.Linear(ufo.x, targetX, UFO.lockLerp);
+        ufo.y = Phaser.Math.Linear(ufo.y, targetY, UFO.lockLerp);
 
-        if (Phaser.Math.Distance.Between(ufo.x, ufo.y, targetX, targetY) < 10) {
+        if (Phaser.Math.Distance.Between(ufo.x, ufo.y, targetX, targetY) < UFO.lockThresholdPx) {
           this.state = 'charging';
           this.timer = 0;
         }
@@ -102,9 +102,9 @@ export class UfoSystem {
         if (tick % UFO.flickerPeriodSteps < UFO.flickerOnSteps) {
           beam.fillStyle(0xffff00, 0.3); // Yellow
           beam.beginPath();
-          beam.moveTo(ufo.x, ufo.y + 20);
-          beam.lineTo(ufo.x - UFO.beamHalfWidth, 700);
-          beam.lineTo(ufo.x + UFO.beamHalfWidth, 700);
+          beam.moveTo(ufo.x, ufo.y + UFO.beamOriginOffsetY);
+          beam.lineTo(ufo.x - UFO.beamHalfWidth, UFO.beamLengthY);
+          beam.lineTo(ufo.x + UFO.beamHalfWidth, UFO.beamLengthY);
           beam.closePath();
           beam.fillPath();
         }
@@ -120,9 +120,9 @@ export class UfoSystem {
         beam.clear();
         beam.fillStyle(0x00ff00, 0.6); // Green
         beam.beginPath();
-        beam.moveTo(ufo.x, ufo.y + 20);
-        beam.lineTo(ufo.x - UFO.beamHalfWidth, 700);
-        beam.lineTo(ufo.x + UFO.beamHalfWidth, 700);
+        beam.moveTo(ufo.x, ufo.y + UFO.beamOriginOffsetY);
+        beam.lineTo(ufo.x - UFO.beamHalfWidth, UFO.beamLengthY);
+        beam.lineTo(ufo.x + UFO.beamHalfWidth, UFO.beamLengthY);
         beam.closePath();
         beam.fillPath();
 
@@ -139,17 +139,17 @@ export class UfoSystem {
             this.hoverCount = UFO.hovers;
             this.timer = 0;
             // Pick new target immediately
-            this.targetX = this.rng.int(100, 380);
-            this.targetY = this.rng.int(100, 300);
+            this.targetX = this.rng.int(...UFO.targetX);
+            this.targetY = this.rng.int(...UFO.targetY);
           } else {
             // Done, leave
             this.state = 'leaving';
           }
         }
       } else if (this.state === 'leaving') {
-        ufo.y -= 3;
+        ufo.y -= UFO.leaveSpeedPxPerStep;
         beam.clear();
-        if (ufo.y < -100) {
+        if (ufo.y < UFO.despawnY) {
           this.active = false;
           ufo.setVisible(false);
           this.state = 'idle';
