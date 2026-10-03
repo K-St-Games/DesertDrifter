@@ -1,4 +1,6 @@
 // Keyboard (arrows + WASD) and touch/pointer input behind one API. Behavior unchanged from the original game.js.
+import { CONTROLS } from '../config.js';
+
 export class Controls {
   constructor(scene) {
     this.scene = scene;
@@ -24,20 +26,20 @@ export class Controls {
     return this.scene.input.activePointer;
   }
 
-  // Speed change on top of the base speed: boost (+4) and brake (-0.5), from keys and touch.
+  // Speed change on top of the base speed: boost (+) and brake (-), from keys and touch.
   speedDelta() {
     const pointer = this.pointer;
     let delta = 0;
 
-    if (this.cursors.up.isDown || this.keyW.isDown) delta += 4;
-    if (this.cursors.down.isDown || this.keyS.isDown) delta -= 0.5;
+    if (this.cursors.up.isDown || this.keyW.isDown) delta += CONTROLS.boost;
+    if (this.cursors.down.isDown || this.keyS.isDown) delta -= CONTROLS.brake;
 
     // Touch Speed Controls
     if (pointer.isDown) {
-      if (pointer.y < 320) {
-        delta += 4; // Top half = Boost
-      } else if (pointer.y > 500) {
-        delta -= 0.5; // Bottom area = Brake
+      if (pointer.y < CONTROLS.boostZoneY) {
+        delta += CONTROLS.boost; // Top half = Boost
+      } else if (pointer.y > CONTROLS.brakeZoneY) {
+        delta -= CONTROLS.brake; // Bottom area = Brake
       }
     }
 
@@ -52,7 +54,7 @@ export class Controls {
 
     // Touch Steering
     if (pointer.isDown) {
-      if (pointer.x < 240) left = true;
+      if (pointer.x < CONTROLS.steerSplitX) left = true;
       else right = true;
     }
 
@@ -67,8 +69,8 @@ export class Controls {
   // once and hands the same object to every step() that frame, so all steps
   // in a frame see identical input (held keys for steer/speedDelta, JustDown
   // edge for pause/mute, held press for restart) and a test can feed a
-  // hand-written object to step(). Touch zones are unchanged (y<320 boost,
-  // y>500 brake, x<240 left else right). Left takes priority when both
+  // hand-written object to step(). Touch zones are unchanged (see CONTROLS:
+  // boostZoneY/brakeZoneY/steerSplitX). Left takes priority when both
   // directions are held, matching steer().
   sample() {
     const { left, right } = this.steer();

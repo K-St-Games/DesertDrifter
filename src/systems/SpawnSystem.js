@@ -1,4 +1,4 @@
-import { ROAD, TUNING } from '../config.js';
+import { ROAD, TUNING, SPAWN } from '../config.js';
 import { applyBehavior } from '../behaviors.js';
 import { ENTITIES, spawnableIds } from '../entities.js';
 
@@ -26,11 +26,11 @@ export class SpawnSystem {
     // --- Spawning Logic ---
     if (tick > this.nextSpawnTick) {
       this.spawnObstacle();
-      // Spawn pacing is unchanged: base delay ms with +/-100 ms jitter, 300 ms
+      // Spawn pacing is unchanged: base delay ms with +/- jitter ms, min-delay
       // floor. Converted once to integer steps (round(ms / stepMs)).
-      const delayMs = (1500 / (currentSpeed * 0.8)) + this.rng.int(-100, 100);
+      const delayMs = (SPAWN.baseDelayMs / (currentSpeed * SPAWN.speedFactor)) + this.rng.int(-SPAWN.jitterMs, SPAWN.jitterMs);
       const delaySteps = Math.max(
-        Math.round(300 / TUNING.stepMs),
+        Math.round(SPAWN.minDelayMs / TUNING.stepMs),
         Math.round(delayMs / TUNING.stepMs),
       );
       this.nextSpawnTick = tick + delaySteps;
@@ -39,9 +39,9 @@ export class SpawnSystem {
     // --- Move Obstacles ---
     this.group.children.iterate((child) => {
       if (child && child.active) {
-        child.y += currentSpeed * 2; // Match road scrolling speed
+        child.y += currentSpeed * TUNING.scrollFactor; // Match road scrolling speed
 
-        if (child.y > 700) {
+        if (child.y > SPAWN.despawnY) {
           if (!child.scored) {
             child.scored = true;
             const points = ENTITIES[child.texture.key].points ?? 0;
@@ -58,7 +58,7 @@ export class SpawnSystem {
 
     const type = this.pickType();
     const def = ENTITIES[type];
-    const obstacle = this.factory.createInGroup(this.group, type, this.pickX(def.spawnZone), -50);
+    const obstacle = this.factory.createInGroup(this.group, type, this.pickX(def.spawnZone), SPAWN.spawnY);
     obstacle.scored = false;
     applyBehavior(obstacle, def.behavior, this.rng);
   }
