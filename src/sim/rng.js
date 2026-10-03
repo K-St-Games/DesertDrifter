@@ -1,7 +1,7 @@
 // WP-B3: gameplay RNG, separate from cosmetic/audio randomness.
 //
 // One seeded generator instance drives all gameplay draws (spawning, obstacle
-// behaviors, UFO targets) in a fixed draw order. Cosmetic shake and the music
+// behaviors, terrain offsets, UFO targets) in a fixed draw order. Cosmetic HUD shake and the music
 // start offset stay on Math.random (via Phaser.Math), so audio load timing can
 // never shift the gameplay sequence.
 //
