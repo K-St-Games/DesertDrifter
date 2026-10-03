@@ -110,6 +110,17 @@ export class GameScene extends Phaser.Scene {
     // 8. Collisions
     this.physics.add.overlap(this.car, this.spawner.group, this.hitObstacle, null, this);
     this.physics.add.overlap(this.trailer, this.spawner.group, this.hitObstacle, null, this);
+    // WP-B2: physics advances on the gameplay clock, not the render loop.
+    // Phaser 3.90 Arcade (ArcadePhysics.start) subscribes World.update to every
+    // Scene UPDATE unless disabled, and World.update then steps on render
+    // timing (fixedStep/fps accumulator), so the car integrated on the display
+    // refresh rate instead of the 60 Hz gameplay step. disableUpdate() lives
+    // on ArcadePhysics (not on the World) and detaches that link (self-driven
+    // updates, since 3.50.0); step() below drives the world exactly once per
+    // tick. World.postUpdate on scene POST_UPDATE is unaffected by this
+    // setting and still syncs integrated bodies back to sprites once per
+    // stepped frame (stepsLastFrame gate).
+    this.detachPhysicsFromRenderLoop();
 
     // 9. UFO
     this.ufo = new UfoSystem(this, {
@@ -149,6 +160,15 @@ export class GameScene extends Phaser.Scene {
       },
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.form.destroy());
+  }
+
+  // WP-B2: detach point for the render-driven physics update, called once
+  // from create(). disableUpdate() is an ArcadePhysics method (it unregisters
+  // World.update from scene UPDATE); the World itself has no such method, so
+  // calling it on this.physics.world throws. Kept as a named method so the
+  // call-site contract is unit-testable (see regressions.test.mjs).
+  detachPhysicsFromRenderLoop() {
+    this.physics.disableUpdate();
   }
 
   update(time, delta) {
@@ -279,6 +299,22 @@ export class GameScene extends Phaser.Scene {
 
     // --- 5. Spawning, moving and scoring obstacles ---
     this.spawner.update(this.tick, currentSpeed, multiplier);
+
+    // --- 6. Physics: one fixed world step per gameplay step ---
+    // WP-B2: World.update(0, stepMs) with the default fixedStep/fps=60 advances
+    // exactly one step: _elapsed (0 + stepMs) crosses one frame, so preUpdate +
+    // one integration + one collider pass run, and the while loop has nothing
+    // left (~0 remaining). Overlap callbacks (hitObstacle, with its re-entry
+    // guard) therefore fire at most once per tick, on final tick positions.
+    // update() — not step(seconds) — is the entry point because several bodies
+    // are moved by direct GameObject writes each step (trailer lerp, obstacle Y
+    // scroll, terrain shake) and only update()'s preUpdate syncs those into the
+    // bodies via Body.updateFromGameObject before colliding; a raw step() would
+    // integrate and test stale body positions (obstacle bodies, which carry no
+    // Y velocity, would never move in Y and overlaps would never fire).
+    this.physics.world.update(0, TUNING.stepMs);
+    // Publish integrated body positions before another tick reads sprites.
+    this.physics.world.postUpdate();
   }
 
   // WP-A0 probe: read-only sample of render-visible state. Only called when

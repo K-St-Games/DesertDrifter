@@ -29,6 +29,11 @@ export const ROAD = {
 // Difficulty note: SpawnSystem's delay `(1500/(speed*0.8))` tightens as speed
 // rises, so a faster base would also spawn obstacles faster; left unchanged
 // per D1 (no balance change in WP-A3).
+// The Arcade world runs on the same clock: GameScene detaches the world's
+// render-driven update (ArcadePhysics.disableUpdate, not a World method) and
+// calls world.update(0, stepMs) once per step, which advances exactly one
+// fixed step at the default world fps of 60. Do not change stepMs without
+// re-checking that 1:1 ratio.
 // All gameplay timers are counted in steps ("ticks": 1 tick = 1 step).
 // WP-B1: ms values were converted once via steps = round(ms / stepMs),
 // stepMs = 1000/60, so 1 step ~= 16.67 ms. Integer-tick timing differs from
