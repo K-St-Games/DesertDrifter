@@ -32,6 +32,17 @@ Arrows or WASD to steer, Up/W to boost (x2 score multiplier at speed), Down/S to
 | `assets/` | Runtime assets: generated indexed sprites in `sprites/`, music in `audio/` |
 | `tools/` | `build_sprites.py`, `audit_sprites.py` (Pillow, numpy, scipy), `fix_assets.py` |
 
+## Measure speed and jitter (WP-A0)
+
+```bash
+python3 -m http.server 8080
+node tools/measure/run_browser.mjs --url 'http://localhost:8080/?seed=race1&debug' --seconds 30 --out /tmp/opencode/measure_60hz.json --throttle-fps 60
+node tools/measure/summarise.mjs /tmp/opencode/measure_60hz.json
+```
+
+No browser available? Use the deterministic fallback: `node tools/measure/simulate.mjs --cadence 60 --seconds 30 --out /tmp/opencode/measure_60hz.json`.
+Details and baseline numbers: [tools/measure/README.md](tools/measure/README.md).
+
 ## Add an obstacle
 
 1. Put a 1024 px PNG with a transparent background in `art/source/<id>.png` and its on-screen size in `art/sprites.json`.
