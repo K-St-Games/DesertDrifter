@@ -168,8 +168,9 @@ async function main() {
       booted = await evaluate(`(() => {
         if (!window.game) return null;
         const g = window.game;
+        const DT = 1000 / 60; // exact stepMs: 16.666 would starve one step per ~500 frames
         let t = performance.now();
-        for (let k = 0; k < 10; k++) { t += 16.666; g.step(t, 16.666); }
+        for (let k = 0; k < 10; k++) { t += DT; g.step(t, DT); }
         const active = g.scene.getScenes(true).map(s => s.scene.key);
         return { active, tick: active.includes('GameScene') ? g.scene.getScene('GameScene').tick : -1,
           render: typeof window.render_game_to_text };
@@ -183,7 +184,7 @@ async function main() {
       const extra = await evaluate(`(() => {
         const g = window.game; const s = g.scene.getScene('GameScene');
         let t = performance.now();
-        for (let k = 0; k < ${steps}; k++) { t += 16.666; g.step(t, 16.666); }
+        for (let k = 0; k < ${steps}; k++) { t += DT; g.step(t, DT); }
         const out = { tick: s.tick, score: s.score, carX: Math.round(s.car.x * 10) / 10 };
         if (${checkSteer ? 'true' : 'false'}) {
           s.spawner.nextSpawnTick = 1e9; s.spawner.nextSpawnTime = 1e9; // disable spawning for the steering probe
@@ -193,7 +194,7 @@ async function main() {
           const kd = { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, which: 39, bubbles: true };
           const down = new KeyboardEvent('keydown', kd);
           window.dispatchEvent(down); document.dispatchEvent(down);
-          for (let k = 0; k < 60; k++) { t += 16.666; g.step(t, 16.666); }
+          for (let k = 0; k < 60; k++) { t += DT; g.step(t, DT); }
           const up = new KeyboardEvent('keyup', { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, which: 39, bubbles: true });
           window.dispatchEvent(up); document.dispatchEvent(up);
           out.steerDx = Math.round((s.car.x - x0) * 10) / 10;
