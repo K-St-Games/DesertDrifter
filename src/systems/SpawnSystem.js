@@ -10,22 +10,27 @@ export class SpawnSystem {
     this.isGameOver = isGameOver;
     this.onScore = onScore;
     this.group = scene.physics.add.group();
-    this.nextSpawnTime = 0;
+    this.nextSpawnTick = 0;
   }
 
-  start() {
-    this.nextSpawnTime = this.scene.time.now + TUNING.firstSpawnDelayMs;
+  start(tick) {
+    this.nextSpawnTick = tick + TUNING.firstSpawnDelaySteps;
   }
 
-  update(currentSpeed, multiplier) {
-    const scene = this.scene;
-
+  // WP-B1: tick is the scene's gameplay clock (1 per step). Cooldowns freeze
+  // while paused because the scene stops calling step(), so tick stops too.
+  update(tick, currentSpeed, multiplier) {
     // --- Spawning Logic ---
-    if (scene.time.now > this.nextSpawnTime) {
+    if (tick > this.nextSpawnTick) {
       this.spawnObstacle();
-      let delay = (1500 / (currentSpeed * 0.8)) + Phaser.Math.Between(-100, 100);
-      if (delay < 300) delay = 300;
-      this.nextSpawnTime = scene.time.now + delay;
+      // Spawn pacing is unchanged: base delay ms with +/-100 ms jitter, 300 ms
+      // floor. Converted once to integer steps (round(ms / stepMs)).
+      const delayMs = (1500 / (currentSpeed * 0.8)) + Phaser.Math.Between(-100, 100);
+      const delaySteps = Math.max(
+        Math.round(300 / TUNING.stepMs),
+        Math.round(delayMs / TUNING.stepMs),
+      );
+      this.nextSpawnTick = tick + delaySteps;
     }
 
     // --- Move Obstacles ---

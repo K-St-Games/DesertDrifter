@@ -29,25 +29,32 @@ export const ROAD = {
 // Difficulty note: SpawnSystem's delay `(1500/(speed*0.8))` tightens as speed
 // rises, so a faster base would also spawn obstacles faster; left unchanged
 // per D1 (no balance change in WP-A3).
+// All gameplay timers are counted in steps ("ticks": 1 tick = 1 step).
+// WP-B1: ms values were converted once via steps = round(ms / stepMs),
+// stepMs = 1000/60, so 1 step ~= 16.67 ms. Integer-tick timing differs from
+// the old float-ms timing by at most 1 step per delay.
 export const TUNING = {
   stepMs: 1000 / 60,
   maxFrameMs: 100, // clamp long frames (tab switches) so the sim never spirals
   baseSpeed: 1,
   speedIncrement: 0.0001, // per step; base speed creeps up during a run
   maxBaseSpeed: 1.8, // stays below the x2 multiplier threshold (2)
-  restartLockoutMs: 500,
-  firstSpawnDelayMs: 2000,
+  restartLockoutSteps: 30, // was restartLockoutMs: 500 (500 / stepMs ~= 30)
+  firstSpawnDelaySteps: 120, // was firstSpawnDelayMs: 2000 (2000 / stepMs = 120)
 };
 
-// UFO boss tunables (timers are counted in fixed steps, 60 per second)
+// UFO boss tunables (all timers counted in fixed steps, 60 per second)
 export const UFO = {
   scoreThreshold: 2000,
   hovers: 3, // random hover points before locking on
   attacks: 3,
-  chargeSteps: 180, // warning beam
-  fireSteps: 60, // deadly beam
+  chargeSteps: 180, // warning beam (3 s)
+  fireSteps: 60, // deadly beam (1 s)
   beamHalfWidth: 40,
-  respawnMs: [10000, 20000],
+  // WP-B1: was respawnMs: [10000, 20000]; steps = round(ms / stepMs).
+  respawnSteps: [600, 1200], // 10-20 s; Between() draws integer steps directly
+  flickerPeriodSteps: 12, // warning-beam flicker period (was 200 ms)
+  flickerOnSteps: 6, // beam visible for the first half-period (was 100 ms)
 };
 
 export function createGameConfig(scenes) {
