@@ -23,6 +23,10 @@ Open <http://localhost:8080/>. Add `?debug` to expose `window.game` in the conso
 
 Arrows or WASD to steer, Up/W to boost (x2 score multiplier at speed), Down/S to brake. Touch: left/right half steers, top boosts, bottom brakes. `M` mutes, `P` pauses, `0` draws hitboxes.
 
+## Game speed (WP-A3)
+
+Target pace (owner decision D1) is the 60 Hz pace: the road scrolls `currentSpeed * 2` px per fixed 60 Hz step, i.e. 120 px/s at base speed and ~130.8 px/s averaged over a 30 s neutral run as the `+0.0001`/step ramp lifts the rate toward ~142 px/s, identical within 2% on 60 Hz and 120 Hz+ displays by fixed-step design. Verify with the WP-A0 harness (`tools/measure/`): `node tools/measure/simulate.mjs --cadence {60,120} --seconds 30` then `node tools/measure/summarise.mjs` on each output (or `run_browser.mjs` for live browser numbers).
+
 ## Layout
 
 | Path | What |
