@@ -1,17 +1,40 @@
 // High-score persistence and leaderboard text. Behavior unchanged from the original game.js.
 const STORAGE_KEY = 'highScores';
+const STORAGE_VERSION = 1;
 const MAX_ENTRIES = 10;
 const MIN_SCORE_TO_PROMPT = 1000;
 
+function sanitizeEntries(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((e) => e && typeof e.name === 'string' && Number.isFinite(e.score));
+}
+
+// Stored shape is { version: 1, scores: [...] }. Older builds stored a bare
+// array; both load. Anything else (malformed JSON, wrong shape) recovers to [].
+function loadScores() {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch (err) {
+    // unavailable storage: start with an empty list
+    return [];
+  }
+  if (raw == null) return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    // corrupt data: start with an empty list
+    return [];
+  }
+  if (Array.isArray(parsed)) return sanitizeEntries(parsed);
+  if (parsed && Array.isArray(parsed.scores)) return sanitizeEntries(parsed.scores);
+  return [];
+}
+
 export class HighScoreManager {
   constructor() {
-    this.scores = [];
-    try {
-      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (Array.isArray(parsed)) this.scores = parsed.filter((e) => e && typeof e.name === 'string' && Number.isFinite(e.score));
-    } catch (err) {
-      // corrupt or unavailable storage: start with an empty list
-    }
+    this.scores = loadScores();
   }
 
   // Minimum score to even prompt, then a top-10 check (the list is kept sorted, best first).
@@ -35,7 +58,7 @@ export class HighScoreManager {
     this.scores.push({ name: initials, score });
     this.scores.sort((a, b) => b.score - a.score);
     this.scores = this.scores.slice(0, MAX_ENTRIES);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.scores));
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, scores: this.scores })); } catch (err) { /* storage unavailable: keep in-memory scores so the flow completes */ }
     return true;
   }
 
