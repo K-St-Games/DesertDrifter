@@ -62,4 +62,22 @@ export class Controls {
   restartRequested() {
     return this.cursors.space.isDown || this.pointer.isDown;
   }
+
+  // WP-B4: one input snapshot per rendered frame. GameScene.update() takes it
+  // once and hands the same object to every step() that frame, so all steps
+  // in a frame see identical input (held keys for steer/speedDelta, JustDown
+  // edge for pause/mute, held press for restart) and a test can feed a
+  // hand-written object to step(). Touch zones are unchanged (y<320 boost,
+  // y>500 brake, x<240 left else right). Left takes priority when both
+  // directions are held, matching steer().
+  sample() {
+    const { left, right } = this.steer();
+    return {
+      steer: left ? -1 : right ? 1 : 0,
+      speedDelta: this.speedDelta(),
+      restart: this.restartRequested(),
+      pause: this.pauseJustPressed(),
+      mute: this.muteJustPressed(),
+    };
+  }
 }
