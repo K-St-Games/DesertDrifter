@@ -113,10 +113,13 @@ export class GameScene extends Phaser.Scene {
     // Phaser 3.90 Arcade (ArcadePhysics.start) subscribes World.update to every
     // Scene UPDATE unless disabled, and World.update then steps on render
     // timing (fixedStep/fps accumulator), so the car integrated on the display
-    // refresh rate instead of the 60 Hz gameplay step. disableUpdate() detaches
-    // that link (ArcadePhysics API for self-driven updates, since 3.50.0);
-    // step() below drives the world exactly once per tick.
-    this.physics.world.disableUpdate();
+    // refresh rate instead of the 60 Hz gameplay step. disableUpdate() lives
+    // on ArcadePhysics (not on the World) and detaches that link (self-driven
+    // updates, since 3.50.0); step() below drives the world exactly once per
+    // tick. World.postUpdate on scene POST_UPDATE is unaffected by this
+    // setting and still syncs integrated bodies back to sprites once per
+    // stepped frame (stepsLastFrame gate).
+    this.detachPhysicsFromRenderLoop();
 
     // 9. UFO
     this.ufo = new UfoSystem(this, {
@@ -156,6 +159,15 @@ export class GameScene extends Phaser.Scene {
       },
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.form.destroy());
+  }
+
+  // WP-B2: detach point for the render-driven physics update, called once
+  // from create(). disableUpdate() is an ArcadePhysics method (it unregisters
+  // World.update from scene UPDATE); the World itself has no such method, so
+  // calling it on this.physics.world throws. Kept as a named method so the
+  // call-site contract is unit-testable (see regressions.test.mjs).
+  detachPhysicsFromRenderLoop() {
+    this.physics.disableUpdate();
   }
 
   update(time, delta) {

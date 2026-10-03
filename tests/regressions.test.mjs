@@ -241,9 +241,13 @@ function steppedScene({ steerScript = () => ({ left: false, right: false }), obs
     highScoreCalls: 0,
     physics: {
       pause() {}, resume() {},
+      // WP-B2: disableUpdate() is an ArcadePhysics method. The fake World
+      // deliberately has no such method, so a wrong call site
+      // (this.physics.world.disableUpdate()) throws instead of silently
+      // passing (that typo crashed boot: "disableUpdate is not a function").
+      disableUpdateCalls: 0,
+      disableUpdate() { this.disableUpdateCalls++; },
       world: {
-        disableUpdateCalls: 0,
-        disableUpdate() { this.disableUpdateCalls++; },
         update(time, deltaMs) {
           worldCalls.push([time, deltaMs]);
           // One fixed integration, like Body.update with delta seconds.
@@ -288,6 +292,21 @@ test('WP-B2: world.update is driven exactly once per step with the fixed dt', ()
       assert.equal(time, 0);
       assert.equal(deltaMs, TUNING.stepMs);
     }
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
+});
+
+test('WP-B2: physics detach uses ArcadePhysics.disableUpdate (not world)', () => {
+  // Regression: create() called this.physics.world.disableUpdate(), which
+  // does not exist in Phaser 3.90 (it lives on ArcadePhysics), crashing boot
+  // with "disableUpdate is not a function".
+  const { scene } = steppedScene();
+  try {
+    assert.equal(typeof scene.physics.world.disableUpdate, 'undefined', 'fake world has no such method');
+    scene.detachPhysicsFromRenderLoop();
+    assert.equal(scene.physics.disableUpdateCalls, 1, 'detached via ArcadePhysics');
+    assert.throws(() => scene.physics.world.disableUpdate(), TypeError, 'wrong call site throws');
   } finally {
     delete globalThis.Phaser.Math;
   }
