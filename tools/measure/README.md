@@ -1,7 +1,7 @@
 # WP-A0 measurement harness
 
 Repeatable numbers for road speed and sprite jitter (prerequisite for
-WP-A3, WP-A4, WP-B1–B5). No npm dependencies; Node 18+ only
+WP-A3, WP-A4, WP-B1–B5). No npm dependencies; Node 22+ only
 (`run_browser.mjs` uses the built-in `fetch`/`WebSocket`).
 
 ## Frame format
@@ -33,6 +33,8 @@ node tools/measure/summarise.mjs /tmp/opencode/measure_120hz.json
 Notes:
 
 - Requires a Chromium/Chrome binary (`--chrome <path>` or `CHROME_PATH`).
+  The runner also searches PATH. Use `--no-sandbox` only in containers where
+  Chromium cannot initialize its browser sandbox.
   Without one the runner exits 2 and tells you to use the fallback below.
 - `--throttle-fps 60` emulates a 60 Hz display on a faster machine by
   quantizing `requestAnimationFrame`; omit it for the native (120 Hz+) cadence.

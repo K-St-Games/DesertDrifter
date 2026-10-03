@@ -1,3 +1,5 @@
+import { BEHAVIORS } from './behaviors.js';
+
 // Single source of truth for every sprite: file, scoring, spawning and hitbox.
 // Sprites are baked at their on-screen size (scale 1), so hitbox ratios are fractions of the frame.
 // collision: box {widthRatio, heightRatio} or circle {radiusRatio}, centred at (centerXRatio, centerYRatio).
@@ -70,4 +72,88 @@ export const ENTITIES = {
 
 export function spawnableIds() {
   return Object.keys(ENTITIES).filter((id) => ENTITIES[id].category === 'obstacle' && (ENTITIES[id].spawnWeight || 0) > 0);
+}
+
+// Boot-time table check (WP-C2): throws the first problem found with a
+// field-specific message, e.g. `ENTITIES[rock].spawnZone "moon" is invalid`.
+// Call with no arguments to check the shipped table; pass a custom table
+// (and behavior registry) to check candidate rows in tests or tooling.
+const KNOWN_CATEGORIES = new Set(['player', 'obstacle', 'boss']);
+const KNOWN_SPAWN_ZONES = new Set(['road', 'desert', 'any']);
+const KNOWN_SHAPES = new Set(['box', 'circle']);
+
+function isSizeRatio(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 1;
+}
+
+function isCenterRatio(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function checkCollision(id, collision) {
+  const where = `ENTITIES[${id}].collision`;
+  if (collision === null || typeof collision !== 'object') {
+    throw new Error(`${where} is missing (expected a { shape, ...ratios } object)`);
+  }
+  if (!KNOWN_SHAPES.has(collision.shape)) {
+    throw new Error(`${where}.shape ${JSON.stringify(collision.shape)} is invalid (expected "box" or "circle")`);
+  }
+  for (const field of ['centerXRatio', 'centerYRatio']) {
+    if (!isCenterRatio(collision[field])) {
+      throw new Error(`${where}.${field} ${String(collision[field])} is out of range (expected a number in [0, 1])`);
+    }
+  }
+  if (collision.shape === 'box') {
+    for (const field of ['widthRatio', 'heightRatio']) {
+      if (!isSizeRatio(collision[field])) {
+        throw new Error(`${where}.${field} ${String(collision[field])} is out of range (expected a number in (0, 1])`);
+      }
+    }
+  } else {
+    if (!isSizeRatio(collision.radiusRatio)) {
+      throw new Error(`${where}.radiusRatio ${String(collision.radiusRatio)} is out of range (expected a number in (0, 1])`);
+    }
+  }
+}
+
+export function validateEntities(table = ENTITIES, behaviors = BEHAVIORS) {
+  if (table === null || typeof table !== 'object') {
+    throw new Error('ENTITIES table is missing (expected an object keyed by entity id)');
+  }
+  for (const [id, def] of Object.entries(table)) {
+    if (def === null || typeof def !== 'object') {
+      throw new Error(`ENTITIES[${id}] is missing (expected a definition object)`);
+    }
+    if (!KNOWN_CATEGORIES.has(def.category)) {
+      throw new Error(`ENTITIES[${id}].category ${JSON.stringify(def.category)} is unknown (expected one of: player, obstacle, boss)`);
+    }
+    const expectedFile = `assets/sprites/${id}.png`;
+    if (def.file !== expectedFile) {
+      throw new Error(`ENTITIES[${id}].file ${JSON.stringify(def.file)} does not match the baked sprite path (expected ${JSON.stringify(expectedFile)})`);
+    }
+    if ('points' in def) {
+      if (typeof def.points !== 'number' || !Number.isFinite(def.points) || def.points < 0) {
+        throw new Error(`ENTITIES[${id}].points ${String(def.points)} is invalid (expected a non-negative number)`);
+      }
+    }
+    const spawnWeight = 'spawnWeight' in def ? def.spawnWeight : 0;
+    if (typeof spawnWeight !== 'number' || !Number.isFinite(spawnWeight) || spawnWeight < 0) {
+      throw new Error(`ENTITIES[${id}].spawnWeight ${String(def.spawnWeight)} is invalid (expected a non-negative number)`);
+    }
+    if (spawnWeight > 0) {
+      if (!KNOWN_SPAWN_ZONES.has(def.spawnZone)) {
+        throw new Error(`ENTITIES[${id}].spawnZone ${JSON.stringify(def.spawnZone)} is invalid (expected one of: road, desert, any)`);
+      }
+    } else if ('spawnZone' in def && !KNOWN_SPAWN_ZONES.has(def.spawnZone)) {
+      throw new Error(`ENTITIES[${id}].spawnZone ${JSON.stringify(def.spawnZone)} is invalid (expected one of: road, desert, any)`);
+    }
+    if (def.behavior !== undefined && def.behavior !== null) {
+      const behaviorId = def.behavior.id;
+      if (typeof behaviorId !== 'string' || !Object.prototype.hasOwnProperty.call(behaviors, behaviorId)) {
+        throw new Error(`ENTITIES[${id}].behavior.id ${JSON.stringify(behaviorId)} is unknown (expected one of: ${Object.keys(behaviors).join(', ') || 'none'})`);
+      }
+    }
+    checkCollision(id, def.collision);
+  }
+  return true;
 }
