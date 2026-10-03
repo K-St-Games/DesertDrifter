@@ -277,6 +277,7 @@ function steppedScene({ steerScript = () => ({ left: false, right: false }), obs
       disableUpdateCalls: 0,
       disableUpdate() { this.disableUpdateCalls++; },
       world: {
+        postUpdate() {},
         update(time, deltaMs) {
           worldCalls.push([time, deltaMs]);
           // preUpdate: sync the body from the game object, then integrate
