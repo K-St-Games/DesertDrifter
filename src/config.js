@@ -15,6 +15,20 @@ export const ROAD = {
 };
 
 // Simulation runs at a fixed 60 Hz step regardless of display refresh rate.
+// Owner decision D1 (WP-A3 / ISSUE-1): keep the 60 Hz pace. The original
+// scrolled `currentSpeed * 2` px once per rendered frame, so on a 120 Hz
+// display it ran ~2x as fast; this build runs the same 60 steps/s everywhere,
+// so baseSpeed/speedIncrement are intentionally NOT raised to match that.
+// Target pace (neutral input): 2 px/step * 60 steps/s = 120 px/s at base
+// speed, creeping with the ramp below to ~142 px/s at t=30 s; the 30 s
+// neutral average is ~130.8 px/s (2*sum(1+0.0001*k, k=1..1800) = 3924.2 px).
+// By fixed-step design the 60 Hz and 120 Hz+ cadences agree within 2%
+// (WP-A0 simulate.mjs: 130.81 vs 130.84 px/s). Verify with
+// `node tools/measure/simulate.mjs --cadence {60,120} --seconds 30` plus
+// `node tools/measure/summarise.mjs` (WP-A0 harness).
+// Difficulty note: SpawnSystem's delay `(1500/(speed*0.8))` tightens as speed
+// rises, so a faster base would also spawn obstacles faster; left unchanged
+// per D1 (no balance change in WP-A3).
 export const TUNING = {
   stepMs: 1000 / 60,
   maxFrameMs: 100, // clamp long frames (tab switches) so the sim never spirals
