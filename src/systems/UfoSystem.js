@@ -3,9 +3,12 @@
 import { TUNING, UFO } from '../config.js';
 
 export class UfoSystem {
-  constructor(scene, { factory, onBeamHit }) {
+  constructor(scene, { factory, onBeamHit, rng }) {
     this.scene = scene;
     this.onBeamHit = onBeamHit;
+    // Shared gameplay RNG (owning scene passes it in); UFO target picks draw
+    // from the same stream as spawning, in call order.
+    this.rng = rng;
 
     this.active = false;
     this.state = 'idle';
@@ -48,8 +51,8 @@ export class UfoSystem {
         this.attackCount = 0;
 
         // Initial random target
-        this.targetX = Phaser.Math.Between(100, 380);
-        this.targetY = Phaser.Math.Between(100, 300);
+        this.targetX = this.rng.int(100, 380);
+        this.targetY = this.rng.int(100, 300);
       }
     }
 
@@ -72,8 +75,8 @@ export class UfoSystem {
           this.hoverCount--;
           if (this.hoverCount > 0) {
             // Pick new target
-            this.targetX = Phaser.Math.Between(100, 380);
-            this.targetY = Phaser.Math.Between(100, 300);
+            this.targetX = this.rng.int(100, 380);
+            this.targetY = this.rng.int(100, 300);
           } else {
             this.state = 'locking';
           }
@@ -136,8 +139,8 @@ export class UfoSystem {
             this.hoverCount = UFO.hovers;
             this.timer = 0;
             // Pick new target immediately
-            this.targetX = Phaser.Math.Between(100, 380);
-            this.targetY = Phaser.Math.Between(100, 300);
+            this.targetX = this.rng.int(100, 380);
+            this.targetY = this.rng.int(100, 300);
           } else {
             // Done, leave
             this.state = 'leaving';
@@ -151,7 +154,7 @@ export class UfoSystem {
           ufo.setVisible(false);
           this.state = 'idle';
           // Return in 10-20 seconds (600-1200 steps)
-          this.nextSpawnTick = tick + Phaser.Math.Between(...UFO.respawnSteps);
+          this.nextSpawnTick = tick + this.rng.int(...UFO.respawnSteps);
         }
       }
     } else {

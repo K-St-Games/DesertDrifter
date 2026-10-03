@@ -2,19 +2,14 @@ import { createGameConfig } from './config.js';
 import { PreloadScene } from './scenes/PreloadScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { bindFullscreenButton } from './ui/fullscreen.js';
+import { readSeedParam } from './sim/rng.js';
 
-// ?seed=<text> makes runs repeatable: Phaser's Between/FloatBetween use Math.random, so replace it.
-const seed = new URLSearchParams(window.location.search).get('seed');
-if (seed !== null) {
-  let a = 0;
-  for (const c of seed) a = (a * 31 + c.charCodeAt(0)) >>> 0;
-  Math.random = () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+// ?seed=<text> seeds the gameplay RNG only (src/sim/rng.js). Cosmetic shake
+// and the music start offset stay on Math.random, so audio load timing can
+// never shift the gameplay sequence. Stashed here; GameScene reads it back in
+// create(). Null when the flag is absent, so unseeded runs still vary.
+if (typeof window !== 'undefined') {
+  window.__DESERT_DRIFTER_SEED__ = readSeedParam();
 }
 
 const game = new Phaser.Game(createGameConfig([PreloadScene, GameScene]));
