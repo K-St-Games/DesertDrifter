@@ -327,6 +327,8 @@ export class GameScene extends Phaser.Scene {
     // integrate and test stale body positions (obstacle bodies, which carry no
     // Y velocity, would never move in Y and overlaps would never fire).
     this.physics.world.update(0, TUNING.stepMs);
+    // Publish integrated body positions before another tick reads sprites.
+    this.physics.world.postUpdate();
   }
 
   // WP-A0 probe: read-only sample of render-visible state. Only called when
