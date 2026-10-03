@@ -6,6 +6,7 @@ import { Controls } from '../input/Controls.js';
 import { HighScoreManager } from '../managers/HighScoreManager.js';
 import { SpawnSystem } from '../systems/SpawnSystem.js';
 import { UfoSystem } from '../systems/UfoSystem.js';
+import { createGameplayRng, readSeedParam } from '../sim/rng.js';
 import { HighScoreForm } from '../ui/HighScoreForm.js';
 
 export class GameScene extends Phaser.Scene {
@@ -21,6 +22,16 @@ export class GameScene extends Phaser.Scene {
     this.paused = false;
     this.tick = 0; // WP-B1: single gameplay clock, +1 per step(); frozen while paused
     this.stepAccumulator = 0;
+
+    // WP-B3: one gameplay RNG per run, shared by spawning, behaviors and UFO
+    // targets in deterministic draw order. Seeded from ?seed= (stashed on
+    // window by main.js) or from Math.random() when absent. Cosmetic shake
+    // and the music offset below stay on Phaser.Math (Math.random) and never
+    // consume this stream.
+    this.seedText = (typeof window !== 'undefined' && window.__DESERT_DRIFTER_SEED__ !== undefined)
+      ? window.__DESERT_DRIFTER_SEED__
+      : readSeedParam();
+    this.rng = createGameplayRng(this.seedText);
 
     this.factory = new EntityFactory(this);
 
@@ -54,6 +65,7 @@ export class GameScene extends Phaser.Scene {
     this.spawner = new SpawnSystem(this, {
       factory: this.factory,
       isGameOver: () => this.gameOver,
+      rng: this.rng,
       onScore: (points) => {
         this.score += points;
 
@@ -121,6 +133,7 @@ export class GameScene extends Phaser.Scene {
     // 9. UFO
     this.ufo = new UfoSystem(this, {
       factory: this.factory,
+      rng: this.rng,
       onBeamHit: (car, ufoSprite) => this.hitObstacle(car, ufoSprite),
     });
 
@@ -353,6 +366,7 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.speed = TUNING.baseSpeed;
     this.tick = 0; // new run restarts the gameplay clock (spawner/UFO derive from it)
+    this.rng.reset(this.seedText); // WP-B3: same seed + inputs => same sequence
     this.stepAccumulator = 0;
 
     // Restart engine sound
