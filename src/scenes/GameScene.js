@@ -124,6 +124,16 @@ export class GameScene extends Phaser.Scene {
     window.render_game_to_text = () => this.renderGameToText();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => delete window.render_game_to_text);
 
+    // WP-A0 measurement probe (debug only): per-rendered-frame samples for
+    // tools/measure/. Read-only; never affects the simulation. Capped buffer.
+    this.measureBuffer = [];
+    this.measureEnabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug');
+    if (this.measureEnabled) {
+      window.__measure = this.measureBuffer;
+      window.getMeasureBuffer = () => JSON.parse(JSON.stringify(this.measureBuffer));
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete window.__measure; delete window.getMeasureBuffer; });
+    }
+
     // High score entry form (DOM)
     this.form = new HighScoreForm({
       onSubmit: (rawInitials) => {
@@ -165,7 +175,10 @@ export class GameScene extends Phaser.Scene {
         this.physics.resume();
       }
     }
-    if (this.paused) return;
+    if (this.paused) {
+      if (this.measureEnabled) this.recordMeasureFrame(0);
+      return;
+    }
 
     if (this.gameOver) {
       // Only allow restart if NOT showing input form, and not straight after the crash
@@ -174,15 +187,19 @@ export class GameScene extends Phaser.Scene {
           this.restartGame();
         }
       }
+      if (this.measureEnabled) this.recordMeasureFrame(0);
       return;
     }
 
     // Fixed-step simulation: identical speed on 60, 120 and 144 Hz displays.
     this.stepAccumulator += Math.min(delta, TUNING.maxFrameMs);
+    let stepsThisFrame = 0;
     while (this.stepAccumulator >= TUNING.stepMs && !this.gameOver) {
       this.stepAccumulator -= TUNING.stepMs;
       this.step();
+      stepsThisFrame++;
     }
+    if (this.measureEnabled) this.recordMeasureFrame(stepsThisFrame);
   }
 
   step() {
@@ -260,6 +277,20 @@ export class GameScene extends Phaser.Scene {
 
     // --- 5. Spawning, moving and scoring obstacles ---
     this.spawner.update(currentSpeed, multiplier);
+  }
+
+  // WP-A0 probe: read-only sample of render-visible state. Only called when
+  // ?debug is present (see create()); never mutates simulation state.
+  recordMeasureFrame(stepsThisFrame) {
+    if (this.measureBuffer.length >= 20000) return;
+    const r = (v) => Math.round(v * 10) / 10;
+    this.measureBuffer.push({
+      t: Math.round(this.time.now),
+      steps: stepsThisFrame,
+      roadY: r(this.road.tilePositionY),
+      carX: r(this.car.x),
+      obstacles: this.spawner.group.getChildren().filter((o) => o.active).map((o) => [r(o.x), r(o.y)]),
+    });
   }
 
   // Compact state for automated tests and debugging (window.render_game_to_text)
