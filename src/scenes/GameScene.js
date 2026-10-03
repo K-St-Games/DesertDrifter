@@ -18,7 +18,8 @@ export class GameScene extends Phaser.Scene {
     this.speed = TUNING.baseSpeed;
     this.score = 0;
     this.gameOver = false;
-    this.gameOverAt = 0; // tick of the crash (see this.tick); lockout is tick-based
+    this.gameOverAt = 0; // tick of the crash
+    this.restartElapsedMs = 0; // UI lockout advances even when gameplay is frozen
     this.paused = false;
     this.tick = 0; // WP-B1: single gameplay clock, +1 per step(); frozen while paused
     this.stepAccumulator = 0;
@@ -196,7 +197,7 @@ export class GameScene extends Phaser.Scene {
       this.pausedText.setVisible(this.paused);
       // WP-B1: no timer fix-up needed. The gameplay clock (this.tick) only
       // advances inside step(), which stops running while paused, so spawn /
-      // UFO cooldowns and the restart lockout simply do not elapse.
+      // UFO cooldowns simply do not elapse.
       if (this.paused) {
         this.physics.pause();
       } else {
@@ -209,8 +210,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.gameOver) {
+      this.restartElapsedMs = (this.restartElapsedMs ?? 0) + Math.max(0, delta);
       // Only allow restart if NOT showing input form, and not straight after the crash
-      if (!this.form.isVisible() && this.tick - this.gameOverAt > TUNING.restartLockoutSteps) {
+      if (!this.form.isVisible() && this.restartElapsedMs >= TUNING.restartLockoutSteps * TUNING.stepMs) {
         if (this.controls.restartRequested()) {
           this.restartGame();
         }
@@ -233,7 +235,7 @@ export class GameScene extends Phaser.Scene {
   step() {
     // WP-B1: single gameplay clock. +1 per step; frozen while paused or
     // game-over because update() stops calling step(), so all tick-based
-    // cooldowns (spawn, UFO, restart lockout) suspend automatically.
+    // cooldowns (spawn, UFO) suspend automatically.
     this.tick++;
 
     // Base speed creeps up during a run
@@ -364,6 +366,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.pause();
     this.gameOver = true;
     this.gameOverAt = this.tick;
+    this.restartElapsedMs = 0;
     this.cameras.main.shake(200, 0.01);
     playerOrTrailer.setTint(0xff0000);
 
@@ -407,6 +410,7 @@ export class GameScene extends Phaser.Scene {
 
   restartGame() {
     this.gameOver = false;
+    this.restartElapsedMs = 0;
     this.score = 0;
     this.speed = TUNING.baseSpeed;
     this.tick = 0; // new run restarts the gameplay clock (spawner/UFO derive from it)
