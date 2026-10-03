@@ -229,6 +229,7 @@ function steppedScene({ steerScript = () => ({ left: false, right: false }), obs
   const trailer = { x: 240, y: 500, angle: 0, setAngle(a) { this.angle = a; } };
   const scene = Object.assign(new GameScene(), {
     tick: 0,
+    rng: createGameplayRng('step-test'),
     speed: TUNING.baseSpeed,
     score: 0,
     gameOver: false,
@@ -758,6 +759,7 @@ test('WP-B4: mute/pause/restart edges are handled once per frame', () => {
     scene.gameOver = true;
     scene.tick = 100;
     scene.gameOverAt = 0;
+    scene.restartElapsedMs = TUNING.restartLockoutSteps * TUNING.stepMs;
     scene.form = { isVisible: () => false };
     let restarts = 0;
     scene.restartGame = () => { restarts++; };
@@ -795,6 +797,7 @@ test('WP-A4 review: 60 held-right ticks move the car ~200 px (no frozen X)', () 
   // which would drag the off-road car; the browser draws mean ~0.
   const between = globalThis.Phaser.Math.Between;
   globalThis.Phaser.Math.Between = () => 0;
+  scene.rng.int = () => 0; // isolate integration from terrain offsets
   try {
     runFrames(scene, 60, TUNING.stepMs);
     const simX = scene.renderCurr.sprites.get(car).x;
@@ -1003,6 +1006,19 @@ test('WP-A4: restartGame clears interpolation state', () => {
   } finally {
     delete globalThis.Phaser.Math;
   }
+});
+
+test('off-road movement is identical despite different cosmetic random draws', () => {
+  const run = (cosmeticValue) => {
+    const { scene, car, trailer } = steppedScene();
+    scene.rng = createGameplayRng('off-road');
+    car.x = 100;
+    trailer.x = 100;
+    globalThis.Phaser.Math.Between = () => cosmeticValue;
+    runFrames(scene, 30, TUNING.stepMs);
+    return { car: [car.x, car.y], trailer: [trailer.x, trailer.y], rng: scene.rng.state };
+  };
+  assert.deepEqual(run(-2), run(2));
 });
 
 // --- WP-B5: manual advancement and richer snapshot ---

@@ -1,59 +1,59 @@
 {
   "note": "WP-B6 replay golden: expected renderGameToText() snapshots. Regenerate with: node tools/replay/check.mjs --regenerate",
   "seed": "replay-b6",
-  "crashTick": 3372,
+  "crashTick": 2996,
   "records": [
     {
       "phase": "run1",
       "tick": 150,
-      "snapshot": "{\"mode\":\"running\",\"tick\":150,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":1944644472,\"nextSpawnTick\":229,\"spawnInTicks\":79,\"score\":0,\"speed\":1,\"car\":{\"x\":320,\"y\":380},\"trailer\":{\"x\":316.8,\"y\":503.4},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":-100,\"y\":-100,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":-150},\"obstacles\":[{\"id\":\"tumbleweed\",\"x\":284.5,\"y\":10.8}]}"
+      "snapshot": "{\"mode\":\"running\",\"tick\":150,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":2441021448,\"nextSpawnTick\":229,\"spawnInTicks\":79,\"score\":0,\"speed\":1,\"car\":{\"x\":347,\"y\":396},\"trailer\":{\"x\":333.3,\"y\":519.6},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":-100,\"y\":-100,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":-150},\"obstacles\":[{\"id\":\"tumbleweed\",\"x\":284.5,\"y\":10.8}]}"
     },
     {
       "phase": "run1",
       "tick": 600,
-      "snapshot": "{\"mode\":\"running\",\"tick\":600,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":2384656551,\"nextSpawnTick\":672,\"spawnInTicks\":72,\"score\":100,\"speed\":1.1,\"car\":{\"x\":286.7,\"y\":380},\"trailer\":{\"x\":286.6,\"y\":500},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":-100,\"y\":-100,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":-600},\"obstacles\":[{\"id\":\"tumbleweed\",\"x\":617.4,\"y\":486.2},{\"id\":\"rock\",\"x\":284,\"y\":267.9},{\"id\":\"tree\",\"x\":63,\"y\":32.5}]}"
+      "snapshot": "{\"mode\":\"running\",\"tick\":600,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":3395893900,\"nextSpawnTick\":666,\"spawnInTicks\":66,\"score\":100,\"speed\":1.1,\"car\":{\"x\":319.7,\"y\":374},\"trailer\":{\"x\":319.1,\"y\":493.1},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":-100,\"y\":-100,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":-600},\"obstacles\":[{\"id\":\"tree\",\"x\":70,\"y\":496.5},{\"id\":\"tree\",\"x\":460,\"y\":267.9},{\"id\":\"tumbleweed\",\"x\":177.3,\"y\":47.3}]}"
     },
     {
       "phase": "run1",
       "tick": 1800,
-      "snapshot": "{\"mode\":\"running\",\"tick\":1800,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":1241291305,\"nextSpawnTick\":1869,\"spawnInTicks\":69,\"score\":1050,\"speed\":1.2,\"car\":{\"x\":286.7,\"y\":380},\"trailer\":{\"x\":286.7,\"y\":500},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":-100,\"y\":-100,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":-1800},\"obstacles\":[{\"id\":\"tree\",\"x\":20,\"y\":688.1},{\"id\":\"tree\",\"x\":79,\"y\":450.5},{\"id\":\"tumbleweed\",\"x\":242.1,\"y\":224.8},{\"id\":\"tumbleweed\",\"x\":362.8,\"y\":6.6}]}"
+      "snapshot": "{\"mode\":\"running\",\"tick\":1800,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":2316469851,\"nextSpawnTick\":1879,\"spawnInTicks\":79,\"score\":1150,\"speed\":1.2,\"car\":{\"x\":319.7,\"y\":374},\"trailer\":{\"x\":319.7,\"y\":494},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":-100,\"y\":-100,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":-1800},\"obstacles\":[{\"id\":\"rock\",\"x\":271,\"y\":667.4},{\"id\":\"rock\",\"x\":283,\"y\":434.3},{\"id\":\"tree\",\"x\":40,\"y\":213.1},{\"id\":\"tumbleweed\",\"x\":416.3,\"y\":-5.2}]}"
     },
     {
       "phase": "run1",
-      "tick": 3000,
-      "snapshot": "{\"mode\":\"running\",\"tick\":3000,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":3761057685,\"nextSpawnTick\":3067,\"spawnInTicks\":67,\"score\":2050,\"speed\":1.3,\"car\":{\"x\":286.7,\"y\":380},\"trailer\":{\"x\":286.7,\"y\":500},\"ufo\":{\"active\":true,\"state\":\"approaching\",\"x\":219.9,\"y\":85.4,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":3,\"nextSpawnTick\":2913,\"spawnInTicks\":-87},\"obstacles\":[{\"id\":\"tumbleweed\",\"x\":-25.7,\"y\":695.6},{\"id\":\"rock\",\"x\":280,\"y\":481.4},{\"id\":\"rock\",\"x\":196,\"y\":237.4},{\"id\":\"rock\",\"x\":177,\"y\":12.3}]}"
+      "tick": 2800,
+      "snapshot": "{\"mode\":\"running\",\"tick\":2800,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":1868881472,\"nextSpawnTick\":2807,\"spawnInTicks\":7,\"score\":2200,\"speed\":1.3,\"car\":{\"x\":319.7,\"y\":374},\"trailer\":{\"x\":319.7,\"y\":494},\"ufo\":{\"active\":true,\"state\":\"locking\",\"x\":303,\"y\":185.1,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":2570,\"spawnInTicks\":-230},\"obstacles\":[{\"id\":\"turtle\",\"x\":275.8,\"y\":591.3},{\"id\":\"tree\",\"x\":437,\"y\":374.7},{\"id\":\"tumbleweed\",\"x\":18.9,\"y\":156.7}]}"
     },
     {
       "phase": "run1",
-      "tick": 3300,
-      "snapshot": "{\"mode\":\"running\",\"tick\":3300,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":3001339621,\"nextSpawnTick\":3334,\"spawnInTicks\":34,\"score\":2400,\"speed\":1.3,\"car\":{\"x\":286.7,\"y\":380},\"trailer\":{\"x\":286.7,\"y\":500},\"ufo\":{\"active\":true,\"state\":\"charging\",\"x\":285,\"y\":170.4,\"timerSteps\":110,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":2913,\"spawnInTicks\":-387},\"obstacles\":[{\"id\":\"rock\",\"x\":252,\"y\":564.4},{\"id\":\"rock\",\"x\":253,\"y\":325.7},{\"id\":\"tumbleweed\",\"x\":195.3,\"y\":96}]}"
+      "tick": 2920,
+      "snapshot": "{\"mode\":\"running\",\"tick\":2920,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":1173104605,\"nextSpawnTick\":2983,\"spawnInTicks\":63,\"score\":2400,\"speed\":1.3,\"car\":{\"x\":319.7,\"y\":374},\"trailer\":{\"x\":319.7,\"y\":494},\"ufo\":{\"active\":true,\"state\":\"charging\",\"x\":311.5,\"y\":179.4,\"timerSteps\":106,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":2570,\"spawnInTicks\":-350},\"obstacles\":[{\"id\":\"tree\",\"x\":437,\"y\":683.4},{\"id\":\"tumbleweed\",\"x\":-73.1,\"y\":465.4},{\"id\":\"rock\",\"x\":239,\"y\":240.7},{\"id\":\"tumbleweed\",\"x\":328.8,\"y\":24.9}]}"
     },
     {
       "phase": "run1",
-      "tick": 3371,
-      "snapshot": "{\"mode\":\"running\",\"tick\":3371,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":4201069764,\"nextSpawnTick\":3419,\"spawnInTicks\":48,\"score\":2500,\"speed\":1.3,\"car\":{\"x\":286.7,\"y\":380},\"trailer\":{\"x\":286.7,\"y\":500},\"ufo\":{\"active\":true,\"state\":\"firing\",\"x\":285,\"y\":170.4,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":2913,\"spawnInTicks\":-458},\"obstacles\":[{\"id\":\"rock\",\"x\":253,\"y\":515.1},{\"id\":\"tumbleweed\",\"x\":233.2,\"y\":285.4},{\"id\":\"rock\",\"x\":305,\"y\":48.8}]}"
+      "tick": 2995,
+      "snapshot": "{\"mode\":\"running\",\"tick\":2995,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":4204400561,\"nextSpawnTick\":3070,\"spawnInTicks\":75,\"score\":2500,\"speed\":1.3,\"car\":{\"x\":319.7,\"y\":374},\"trailer\":{\"x\":319.7,\"y\":494},\"ufo\":{\"active\":true,\"state\":\"firing\",\"x\":311.5,\"y\":179.4,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":2570,\"spawnInTicks\":-425},\"obstacles\":[{\"id\":\"tumbleweed\",\"x\":-130.6,\"y\":659.7},{\"id\":\"rock\",\"x\":239,\"y\":435.1},{\"id\":\"tumbleweed\",\"x\":421.3,\"y\":219.2},{\"id\":\"tree\",\"x\":89,\"y\":-18.8}]}"
     },
     {
       "phase": "crash",
-      "tick": 3372,
-      "snapshot": "{\"mode\":\"game_over\",\"tick\":3372,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":4201069764,\"nextSpawnTick\":3419,\"spawnInTicks\":47,\"score\":2500,\"speed\":1.3,\"car\":{\"x\":286.7,\"y\":380},\"trailer\":{\"x\":286.7,\"y\":500},\"ufo\":{\"active\":true,\"state\":\"firing\",\"x\":285,\"y\":170.4,\"timerSteps\":1,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":2913,\"spawnInTicks\":-459},\"obstacles\":[{\"id\":\"rock\",\"x\":253,\"y\":517.8},{\"id\":\"tumbleweed\",\"x\":233.7,\"y\":288},{\"id\":\"rock\",\"x\":305,\"y\":51.5}]}",
+      "tick": 2996,
+      "snapshot": "{\"mode\":\"game_over\",\"tick\":2996,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":4204400561,\"nextSpawnTick\":3070,\"spawnInTicks\":74,\"score\":2500,\"speed\":1.3,\"car\":{\"x\":319.7,\"y\":374},\"trailer\":{\"x\":319.7,\"y\":494},\"ufo\":{\"active\":true,\"state\":\"firing\",\"x\":311.5,\"y\":179.4,\"timerSteps\":1,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":2570,\"spawnInTicks\":-426},\"obstacles\":[{\"id\":\"tumbleweed\",\"x\":-131.4,\"y\":662.3},{\"id\":\"rock\",\"x\":239,\"y\":437.7},{\"id\":\"tumbleweed\",\"x\":422.5,\"y\":221.8},{\"id\":\"tree\",\"x\":89,\"y\":-16.2}]}",
       "gameOver": true,
-      "gameOverAt": 3372
+      "gameOverAt": 2996
     },
     {
       "phase": "restart",
       "tick": 0,
-      "snapshot": "{\"mode\":\"running\",\"tick\":0,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":3840151482,\"nextSpawnTick\":120,\"spawnInTicks\":120,\"score\":0,\"speed\":1,\"car\":{\"x\":240,\"y\":400},\"trailer\":{\"x\":240,\"y\":500},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":285,\"y\":170.4,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":0},\"obstacles\":[]}"
+      "snapshot": "{\"mode\":\"running\",\"tick\":0,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":3840151482,\"nextSpawnTick\":120,\"spawnInTicks\":120,\"score\":0,\"speed\":1,\"car\":{\"x\":240,\"y\":400},\"trailer\":{\"x\":240,\"y\":500},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":311.5,\"y\":179.4,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":0},\"obstacles\":[]}"
     },
     {
       "phase": "run2",
       "tick": 60,
-      "snapshot": "{\"mode\":\"running\",\"tick\":60,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":3840151482,\"nextSpawnTick\":120,\"spawnInTicks\":60,\"score\":0,\"speed\":1,\"car\":{\"x\":240,\"y\":400},\"trailer\":{\"x\":240,\"y\":519.9},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":285,\"y\":170.4,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":-60},\"obstacles\":[]}"
+      "snapshot": "{\"mode\":\"running\",\"tick\":60,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":3840151482,\"nextSpawnTick\":120,\"spawnInTicks\":60,\"score\":0,\"speed\":1,\"car\":{\"x\":240,\"y\":400},\"trailer\":{\"x\":240,\"y\":519.9},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":311.5,\"y\":179.4,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":-60},\"obstacles\":[]}"
     },
     {
       "phase": "run2",
       "tick": 600,
-      "snapshot": "{\"mode\":\"running\",\"tick\":600,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":2384656551,\"nextSpawnTick\":672,\"spawnInTicks\":72,\"score\":100,\"speed\":1.1,\"car\":{\"x\":286.7,\"y\":380},\"trailer\":{\"x\":286.6,\"y\":500},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":285,\"y\":170.4,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":-600},\"obstacles\":[{\"id\":\"tumbleweed\",\"x\":617.4,\"y\":486.2},{\"id\":\"rock\",\"x\":284,\"y\":267.9},{\"id\":\"tree\",\"x\":63,\"y\":32.5}]}"
+      "snapshot": "{\"mode\":\"running\",\"tick\":600,\"paused\":false,\"seed\":\"replay-b6\",\"rngState\":3395893900,\"nextSpawnTick\":666,\"spawnInTicks\":66,\"score\":100,\"speed\":1.1,\"car\":{\"x\":319.7,\"y\":374},\"trailer\":{\"x\":319.1,\"y\":493.1},\"ufo\":{\"active\":false,\"state\":\"idle\",\"x\":311.5,\"y\":179.4,\"timerSteps\":0,\"attackCount\":0,\"hoverCount\":0,\"nextSpawnTick\":0,\"spawnInTicks\":-600},\"obstacles\":[{\"id\":\"tree\",\"x\":70,\"y\":496.5},{\"id\":\"tree\",\"x\":460,\"y\":267.9},{\"id\":\"tumbleweed\",\"x\":177.3,\"y\":47.3}]}"
     }
   ]
 }

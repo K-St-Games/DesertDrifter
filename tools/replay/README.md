@@ -13,10 +13,10 @@ Seed `replay-b6` with the input script in [`script.mjs`](script.mjs)
 | Phase | Ticks | What is exercised |
 |---|---|---|
 | `run1` @ 150, 600, 1800 | 1–1800 | obstacle spawning, pass-by scoring, RNG stream |
-| `run1` @ 3000 | 2914+ | UFO active, `approaching` (score crossed 2000) |
-| `run1` @ 3300 | 3190+ | UFO `charging` (yellow warning beam, timer 110/180) |
-| `run1` @ 3371 | 3371 | UFO `firing` (green beam, still running) |
-| `crash` @ 3372 | 3372 | first firing step crashes the car (`game_over`) |
+| `run1` @ 2800 | 2800 | UFO active, `locking` (score crossed 2000) |
+| `run1` @ 2920 | 2920 | UFO `charging` (yellow warning beam, timer 106/180) |
+| `run1` @ 2995 | 2995 | UFO `firing` (green beam, still running) |
+| `crash` @ 2996 | 2996 | first firing step crashes the car (`game_over`) |
 | `restart` @ 0 | — | `restartGame()`: clock, score, RNG stream and spawner reset |
 | `run2` @ 60, 600 | 1–600 | post-restart run replays the opening identically |
 
@@ -24,7 +24,15 @@ The harness ([`harness.mjs`](harness.mjs)) builds the real `GameScene`
 with its real spawn/UFO/RNG systems and stubbed rendering/audio, drives it
 through the shipped `advanceTime()` API one step at a time, and reads the
 shipped `renderGameToText()` snapshots — the same APIs the `?debug`
-browser hooks use. No gameplay code is changed or wrapped.
+browser hooks use. No gameplay code is changed or wrapped. The fake world integrates velocities;
+it does not implement Phaser obstacle overlaps or world-bound hitbox geometry.
+This fixture covers spawn/scoring/RNG and the UFO beam crash; browser checks
+must cover actual obstacle collisions and world bounds separately.
+
+The review correction moves terrain offsets into the gameplay RNG because
+those offsets change physics positions. This intentionally changes the seeded
+trajectory, subsequent random draws and the crash from tick 3372 to 2996.
+The golden snapshots were updated for that diagnosed change.
 
 ## Run the check
 
@@ -51,20 +59,11 @@ Never regenerate to silence a failure you do not understand.
 
 ## Sensitivity (deliberate-fail proof)
 
-Verified on this branch by temporarily mutating gameplay constants and
-re-running the check (mutations reverted afterwards):
+Verified by mutating copies of the reviewed checkout (then restoring them):
 
-- `tumbleweed` `spawnWeight` 35 → 1 (`src/entities.js`): check fails —
-  `rngState` differs from tick 150 on, scores diverge, and the crash moves
-  from tick 3372 to 2773 (checkpoint count 10 vs 7, exit 1).
-- `TUNING.stepMs` 1000/60 → 1000/59 (`src/config.js`): check fails — car
-  positions, `nextSpawnTick` countdowns and the crash tick (3372 → 3333)
-  all shift (exit 1).
-- Removing the `world.postUpdate()` call from `step()` (WP-A4 review fix
-  reverted): check fails with 11 problems (exit 1) — without the
-  body→sprite sync the car never moves, so every checkpoint after the
-  steering taps diverges. The harness models the real preUpdate/postUpdate
-  body contract, which is what makes this audible.
+- `tumbleweed.spawnWeight` 35 → 1: the replay fails with RNG/position/score changes.
+- `TUNING.stepMs` 1000/60 → 1000/59: the replay fails with timing and position changes.
 
-Both mutations are caught at the first affected checkpoint, so the check
-guards spawn balance and step timing as required.
+Both return exit 1 against the reviewed golden. Removing `world.postUpdate()`
+also changes integrated positions; the regression suite checks that the car
+moves with its physics body.

@@ -25,9 +25,9 @@ export function scriptedInput(tick) {
 }
 
 // Fixed-tick checkpoints in the first run (all mode 'running' except the crash).
-export const CHECKPOINTS_RUN1 = [150, 600, 1800, 3000, 3300, 3371];
+export const CHECKPOINTS_RUN1 = [150, 600, 1800, 2800, 2920, 2995];
 // The crash lands on the first firing step (mode 'game_over').
-export const EXPECTED_CRASH_TICK = 3372;
+export const EXPECTED_CRASH_TICK = 2996;
 // Upper bound for the crash hunt; the runner fails if no crash by this tick.
 export const MAX_TICKS_RUN1 = 4000;
 // Checkpoints after restartGame() (tick restarts at 0, same seed + same

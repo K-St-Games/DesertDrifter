@@ -4,7 +4,7 @@ import { GameScene } from './scenes/GameScene.js';
 import { bindFullscreenButton } from './ui/fullscreen.js';
 import { readSeedParam } from './sim/rng.js';
 
-// ?seed=<text> seeds the gameplay RNG only (src/sim/rng.js). Cosmetic shake
+// ?seed=<text> seeds the gameplay RNG only (src/sim/rng.js). Cosmetic HUD shake
 // and the music start offset stay on Math.random, so audio load timing can
 // never shift the gameplay sequence. Stashed here; GameScene reads it back in
 // create(). Null when the flag is absent, so unseeded runs still vary.
