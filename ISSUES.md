@@ -15,6 +15,7 @@ Status: `open` | `investigating` | `closed`
   - Base speed starts at `TUNING.baseSpeed` (1) and ramps by `speedIncrement`; compare these values against the original `game.js` (`git show v0-prototype:game.js`).
   - Fixed-step catch-up is capped by `TUNING.maxFrameMs` (100), so a slow or throttled frame loses time.
 - **To do:** measure road px/s in the original (on 60 Hz and on the user's display) and in this build, then pick the target and adjust `baseSpeed`/`speedIncrement`.
+- **Measurement (WP-A3, 2026-10-03, branch `fix/game-speed`):** D1 = keep 60 Hz pace, so no `baseSpeed`/`speedIncrement` change. Analytic 30 s neutral: 2*sum(1+0.0001*k, k=1..1800) = 3924.2 px → 130.8 px/s; WP-A0 `simulate.mjs` reports 130.81 px/s at 60 Hz vs 130.84 px/s at 120 Hz (within 0.1%; target: 2%). Difficulty re-check: spawn delay `(1500/(speed*0.8))±100` (min 300 ms, `src/systems/SpawnSystem.js:26`) tightens as speed rises, so raising the base speed would also spawn obstacles faster — left unchanged per D1, no balance change in this package. ISSUE-4/WP-A4 work remains; closing ISSUE-1 is left to the owner.
 - **Plan:** WP-A0 and WP-A3 in [STANDARDS_ALIGNMENT_PLAN.md](STANDARDS_ALIGNMENT_PLAN.md); needs owner decision D1.
 
 ### ISSUE-2: Road centre lines should be yellow
