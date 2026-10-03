@@ -164,12 +164,17 @@ export class GameScene extends Phaser.Scene {
   update(time, delta) {
     this.debug.update([[this.car, 0x00ff66], [this.trailer, 0x00ccff], [this.ufo.active ? this.ufo.sprite : null, 0xff00ff], ...this.spawner.group.getChildren().map((o) => [o, 0xff3355])]);
 
-    if (this.controls.muteJustPressed()) {
+    // WP-B4: sample input once per rendered frame. Every step() below consumes
+    // this same object, so a multi-step frame cannot see input change mid-frame.
+    // Edge triggers (pause/mute/restart) are handled once here, never per step.
+    const input = this.controls.sample();
+
+    if (input.mute) {
       const muted = this.audio.toggleMute();
       this.sound.mute = muted;
     }
 
-    if (!this.gameOver && this.controls.pauseJustPressed()) {
+    if (!this.gameOver && input.pause) {
       this.paused = !this.paused;
       this.pausedText.setVisible(this.paused);
       // WP-B1: no timer fix-up needed. The gameplay clock (this.tick) only
@@ -186,7 +191,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gameOver) {
       // Only allow restart if NOT showing input form, and not straight after the crash
       if (!this.form.isVisible() && this.tick - this.gameOverAt > TUNING.restartLockoutSteps) {
-        if (this.controls.restartRequested()) {
+        if (input.restart) {
           this.restartGame();
         }
       }
@@ -197,11 +202,13 @@ export class GameScene extends Phaser.Scene {
     this.stepAccumulator += Math.min(delta, TUNING.maxFrameMs);
     while (this.stepAccumulator >= TUNING.stepMs && !this.gameOver) {
       this.stepAccumulator -= TUNING.stepMs;
-      this.step();
+      this.step(input);
     }
   }
 
-  step() {
+  // WP-B4: step() reads only the per-frame input object (hand-written in
+  // tests, sampled live in update()). It never touches keyboard/pointer state.
+  step(input) {
     // WP-B1: single gameplay clock. +1 per step; frozen while paused or
     // game-over because update() stops calling step(), so all tick-based
     // cooldowns (spawn, UFO, restart lockout) suspend automatically.
@@ -213,7 +220,7 @@ export class GameScene extends Phaser.Scene {
     // --- 1. Scroll Road ---
     let currentSpeed = this.speed;
 
-    currentSpeed += this.controls.speedDelta();
+    currentSpeed += input.speedDelta;
 
     if (currentSpeed < 0.5) currentSpeed = 0.5;
     if (currentSpeed > 3) currentSpeed = 3;
@@ -244,12 +251,12 @@ export class GameScene extends Phaser.Scene {
 
     // --- 2. Car Movement ---
     this.car.setVelocity(0);
-    const { left: moveLeft, right: moveRight } = this.controls.steer();
+    const steer = input.steer; // -1|0|1, sampled once per frame (left wins ties)
 
-    if (moveLeft) {
+    if (steer < 0) {
       this.car.setVelocityX(-200);
       this.car.setAngle(-5);
-    } else if (moveRight) {
+    } else if (steer > 0) {
       this.car.setVelocityX(200);
       this.car.setAngle(5);
     } else {
