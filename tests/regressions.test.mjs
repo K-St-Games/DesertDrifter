@@ -9,6 +9,7 @@ const { UfoSystem } = await import('../src/systems/UfoSystem.js');
 const { TUNING, UFO } = await import('../src/config.js');
 const { GameplayRng, createGameplayRng, readSeedParam } = await import('../src/sim/rng.js');
 const { applyBehavior } = await import('../src/behaviors.js');
+const { Controls } = await import('../src/input/Controls.js');
 
 function pauseScene(ufoDeadlineTick) {
   let pauseRequested = false;
@@ -19,11 +20,11 @@ function pauseScene(ufoDeadlineTick) {
     stepAccumulator: 0,
     debug: { update() {} },
     controls: {
-      muteJustPressed: () => false,
-      pauseJustPressed: () => {
-        const requested = pauseRequested;
+      // WP-B4: update() samples once per frame; the edge is consumed here.
+      sample() {
+        const pause = pauseRequested;
         pauseRequested = false;
-        return requested;
+        return { steer: 0, speedDelta: 0, restart: false, pause, mute: false };
       },
     },
     pausedText: { setVisible() {} },
@@ -223,11 +224,20 @@ function steppedScene({ steerScript = () => ({ left: false, right: false }), obs
     car,
     trailer,
     controls: {
-      muteJustPressed: () => false,
-      pauseJustPressed: () => false,
-      speedDelta: () => 0,
-      steer: () => steerScript(scene.tick + 1), // tick the upcoming step() will use
-      restartRequested: () => false,
+      // WP-B4: one sample per rendered frame; every step() in the frame shares
+      // the returned object. steerScript keys on the tick the next step will use.
+      sampleCalls: 0,
+      sample() {
+        this.sampleCalls++;
+        const { left, right } = steerScript(scene.tick + 1);
+        return {
+          steer: left ? -1 : right ? 1 : 0,
+          speedDelta: 0,
+          restart: false,
+          pause: false,
+          mute: false,
+        };
+      },
     },
     audio: {
       updateEngineSpeed() {}, updateUfo() {},
@@ -274,7 +284,7 @@ function steppedScene({ steerScript = () => ({ left: false, right: false }), obs
     // create() registers one overlap per ship, both guarded by hitObstacle.
     colliders.push(fireIfTouching, fireIfTouching);
   }
-  return { scene, car, trailer, worldCalls, overlapFires, colliders };
+  return { scene, car, trailer, worldCalls, overlapFires, colliders, samples: () => scene.controls.sampleCalls };
 }
 
 function runFrames(scene, totalSteps, frameMs) {
@@ -563,4 +573,162 @@ test('WP-B3: restartGame resets the gameplay stream for replayability', () => {
     freshDraws(),
   );
   assert.deepEqual(spawnerCalls, ['clear', ['start', 0]]);
+});
+
+// --- WP-B4: per-step input object ---
+//
+// GameScene.update() samples Controls.sample() once per rendered frame and
+// hands the same object to every step() that frame; step() never reads live
+// keyboard/pointer state. Touch zones are unchanged (y<320 boost, y>500
+// brake, x<240 left else right) and the high-score form's
+// disable/enableGlobalCapture handling is untouched.
+
+function fakeKeyboardControls() {
+  const key = () => ({ isDown: false, justDown: false });
+  const cursors = { up: key(), down: key(), left: key(), right: key(), space: key() };
+  const byCode = { A: key(), D: key(), W: key(), S: key(), M: key(), P: key() };
+  const pointer = { isDown: false, x: 0, y: 0 };
+  globalThis.Phaser.Input = {
+    Keyboard: {
+      KeyCodes: { A: 'A', D: 'D', W: 'W', S: 'S', M: 'M', P: 'P' },
+      JustDown: (k) => !!k.justDown,
+    },
+  };
+  const controls = new Controls({
+    input: {
+      keyboard: {
+        createCursorKeys: () => cursors,
+        addKey: (code) => byCode[code],
+      },
+      activePointer: pointer,
+    },
+  });
+  return { controls, cursors, byCode, pointer };
+}
+
+test('WP-B4: sample maps keyboard steering and speed keys (left wins ties)', () => {
+  const { controls, cursors, byCode } = fakeKeyboardControls();
+  assert.deepEqual(
+    controls.sample(),
+    { steer: 0, speedDelta: 0, restart: false, pause: false, mute: false },
+  );
+  cursors.left.isDown = true;
+  assert.equal(controls.sample().steer, -1);
+  cursors.left.isDown = false;
+  byCode.D.isDown = true;
+  assert.equal(controls.sample().steer, 1);
+  cursors.left.isDown = true; // both held: left wins, as steer() did
+  assert.equal(controls.sample().steer, -1);
+  cursors.left.isDown = false;
+  byCode.D.isDown = false;
+
+  cursors.up.isDown = true;
+  assert.equal(controls.sample().speedDelta, 4);
+  cursors.up.isDown = false;
+  byCode.S.isDown = true;
+  assert.equal(controls.sample().speedDelta, -0.5);
+  byCode.W.isDown = true;
+  assert.equal(controls.sample().speedDelta, 3.5);
+});
+
+test('WP-B4: sample keeps the touch zones for boost/brake/steer', () => {
+  const { controls, pointer } = fakeKeyboardControls();
+  pointer.isDown = true;
+  pointer.y = 100; pointer.x = 400; // top area = boost, right half
+  let s = controls.sample();
+  assert.equal(s.speedDelta, 4);
+  assert.equal(s.steer, 1);
+  pointer.y = 600; pointer.x = 100; // bottom area = brake, left half
+  s = controls.sample();
+  assert.equal(s.speedDelta, -0.5);
+  assert.equal(s.steer, -1);
+  pointer.y = 400; pointer.x = 100; // middle band: no speed change, still steers
+  s = controls.sample();
+  assert.equal(s.speedDelta, 0);
+  assert.equal(s.steer, -1);
+});
+
+test('WP-B4: sample carries pause/mute edges and the restart press', () => {
+  const { controls, cursors, byCode, pointer } = fakeKeyboardControls();
+  byCode.P.justDown = true;
+  assert.equal(controls.sample().pause, true);
+  byCode.P.justDown = false;
+  byCode.M.justDown = true;
+  assert.equal(controls.sample().mute, true);
+  byCode.M.justDown = false;
+  assert.deepEqual([controls.sample().pause, controls.sample().mute], [false, false]);
+  cursors.space.isDown = true;
+  assert.equal(controls.sample().restart, true);
+  cursors.space.isDown = false;
+  assert.equal(controls.sample().restart, false);
+  pointer.isDown = true; // any touch counts as a restart press on the game-over screen
+  assert.equal(controls.sample().restart, true);
+});
+
+test('WP-B4: step consumes only the passed object (no live input reads)', () => {
+  const { scene, car } = steppedScene();
+  try {
+    // Any live hardware read throws: step must use only its argument.
+    scene.controls = new Proxy({}, { get() { throw new Error('step read live input'); } });
+    const y0 = scene.road.tilePositionY;
+    scene.step({ steer: 1, speedDelta: 0, restart: false, pause: true, mute: true });
+    assert.equal(car.velocityX, 200);
+    assert.equal(car.angle, 5);
+    assert.equal(scene.tick, 1);
+    assert.equal(scene.paused, false, 'step ignores edge flags');
+    assert.ok(Math.abs(scene.road.tilePositionY - (y0 - scene.speed * 2)) < 1e-9);
+    scene.step({ steer: -1, speedDelta: -0.5, restart: true, pause: false, mute: false });
+    assert.equal(car.velocityX, -200);
+    assert.equal(car.angle, -5);
+    assert.equal(scene.tick, 2);
+    assert.equal(scene.gameOver, false, 'step ignores the restart flag');
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
+});
+
+test('WP-B4: update samples once per frame; edges fire once, not per step', () => {
+  const { scene, samples, worldCalls } = steppedScene();
+  try {
+    scene.update(0, 100); // a hitch frame runs several steps
+    assert.equal(samples(), 1, 'one sample per rendered frame');
+    assert.ok(scene.tick > 1, 'the frame ran several steps');
+    assert.equal(worldCalls.length, scene.tick, 'one world update per step');
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
+});
+
+test('WP-B4: mute/pause/restart edges are handled once per frame', () => {
+  const { scene } = steppedScene();
+  try {
+    // Mute: one toggle even on a multi-step frame.
+    let toggles = 0;
+    scene.audio.toggleMute = () => { toggles++; return true; };
+    scene.sound = { mute: false };
+    scene.controls = { sample: () => ({ steer: 0, speedDelta: 0, restart: false, pause: false, mute: true }) };
+    scene.update(0, 100);
+    assert.equal(toggles, 1);
+
+    // Pause: toggles once and no steps run.
+    scene.controls = { sample: () => ({ steer: 0, speedDelta: 0, restart: false, pause: true, mute: false }) };
+    const tickBefore = scene.tick;
+    scene.update(0, 100);
+    assert.equal(scene.paused, true);
+    assert.equal(scene.tick, tickBefore);
+
+    // Restart: one call on the game-over screen after the lockout.
+    scene.paused = false;
+    scene.gameOver = true;
+    scene.tick = 100;
+    scene.gameOverAt = 0;
+    scene.form = { isVisible: () => false };
+    let restarts = 0;
+    scene.restartGame = () => { restarts++; };
+    scene.controls = { sample: () => ({ steer: 0, speedDelta: 0, restart: true, pause: false, mute: false }) };
+    scene.update(0, 100);
+    assert.equal(restarts, 1);
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
 });
