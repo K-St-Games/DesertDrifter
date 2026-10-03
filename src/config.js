@@ -15,6 +15,10 @@ export const ROAD = {
 };
 
 // Simulation runs at a fixed 60 Hz step regardless of display refresh rate.
+// The Arcade world runs on the same clock: GameScene detaches the world's
+// render-driven update (world.disableUpdate) and calls world.update(0, stepMs)
+// once per step, which advances exactly one fixed step at the default world
+// fps of 60. Do not change stepMs without re-checking that 1:1 ratio.
 // All gameplay timers are counted in steps ("ticks": 1 tick = 1 step).
 // WP-B1: ms values were converted once via steps = round(ms / stepMs),
 // stepMs = 1000/60, so 1 step ~= 16.67 ms. Integer-tick timing differs from
