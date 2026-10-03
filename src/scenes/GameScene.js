@@ -45,7 +45,8 @@ export class GameScene extends Phaser.Scene {
     });
     this.load.start();
 
-    // 2. Road
+    // 2. Road (texture 1024x999 holds 16 whole dash cycles; first/last rows
+    // identical so the vertical wrap is seamless; Phaser wraps by texture size)
     this.road = this.add.tileSprite(240, 320, 480, 640, 'road');
     this.road.setTileScale(1.0);
     this.road.tilePositionX += ROAD.tilePositionX;
