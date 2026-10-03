@@ -413,6 +413,10 @@ export class GameScene extends Phaser.Scene {
   // update(), it never steps while paused or after a game-over crash, so it
   // stops early in those states. Returns the steps actually run.
   advanceTime(ms, input) {
+    if (!Number.isFinite(ms) || ms < 0) throw new RangeError('advanceTime requires finite, non-negative milliseconds');
+    // Prevent rAF updates between separate debug calls from changing the run.
+    // Resume live play explicitly with window.game.loop.wake().
+    this.game?.loop?.sleep();
     const steps = Math.round(ms / TUNING.stepMs);
     // Start from exact sim: undo any display blend the last rendered frame
     // left in the game objects (the same restore update() runs before steps).
