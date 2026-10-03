@@ -16,7 +16,7 @@ supersedes: "STANDARDS_ALIGNMENT_RECOMMENDATIONS.md (never committed)"
 
 **Written by:** Codex (assessment, 2026-10-03), revised by Claude for orchestration handoff
 **Read by:** The orchestration agent and the owner
-**Validated by:** Static inspection of the code at commit `9516e9c` (branch `fix/ufo-beam`). No code was changed and no playthrough was run for this document. Every claim about code carries a file reference so the orchestrator can re-check it.
+**Validated by:** Static inspection of the code at commit `9516e9c` (`main` plus the UFO beam fix). No code was changed and no playthrough was run for this document. Every claim about code carries a file reference so the orchestrator can re-check it.
 
 This plan is a proposal until the owner answers the decisions in section 4. Accepted architecture choices stay in [PLAN.md](PLAN.md) (native ES modules, no build step, declarative entity tables, new content deferred). Open bugs are in [ISSUES.md](ISSUES.md).
 
@@ -38,7 +38,7 @@ This plan is a proposal until the owner answers the decisions in section 4. Acce
 ## 2. Ground rules for the orchestrator
 
 - **Repo and remote.** Work only in `K-St-Games/DesertDrifter`. Never push to or open PRs against `tmest`'s repository (`thomasmeston/DesertDrifter`). Never force-push `main`.
-- **Current stack.** Open PRs #1 to #6 are stacked: #1 `refactor/es-modules` to `main`, then #2 `fix/correctness`, #3 `feat/art-pipeline`, #4 `feat/data-driven`, #5 `feat/polish-docs`, #6 `fix/ufo-beam`. Until they merge, base new work on `fix/ufo-beam`. After they merge, rebase onto `main`.
+- **Branching.** PRs #1 to #6 are merged. Branch new work from `main` and open PRs against `main`. Note that #6 (the UFO beam fix) was merged into `feat/polish-docs` after that branch had already landed, so the fix is not on `main` until the follow-up PR "Fix stale UFO beam" lands. Confirm it is on `main` before starting work that touches `UfoSystem.js`.
 - **One PR per work package** (or per closely coupled pair), small enough to review alone. Branch names: `fix/<topic>`, `feat/<topic>`, `docs/<topic>`.
 - **Commit trailers.** Commits end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. PR bodies end with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - **Do not merge PRs or change repo settings** (Pages, branch protection) without the owner's OK.
