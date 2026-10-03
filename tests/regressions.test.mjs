@@ -4,15 +4,15 @@ import test from 'node:test';
 // These checks exercise scene logic without initializing a renderer or audio.
 globalThis.Phaser = { Scene: class {} };
 const { GameScene } = await import('../src/scenes/GameScene.js');
+const { SpawnSystem } = await import('../src/systems/SpawnSystem.js');
 const { UfoSystem } = await import('../src/systems/UfoSystem.js');
-const { UFO } = await import('../src/config.js');
+const { TUNING, UFO } = await import('../src/config.js');
 
-function pauseScene(ufoDeadline) {
+function pauseScene(ufoDeadlineTick) {
   let pauseRequested = false;
   const scene = Object.assign(new GameScene(), {
-    time: { now: 1000 },
+    tick: 120,
     paused: false,
-    pauseStartedAt: null,
     gameOver: false,
     stepAccumulator: 0,
     debug: { update() {} },
@@ -26,51 +26,114 @@ function pauseScene(ufoDeadline) {
     },
     pausedText: { setVisible() {} },
     physics: { pause() {}, resume() {} },
-    spawner: { nextSpawnTime: 2000, group: { getChildren: () => [] } },
-    ufo: { active: false, nextSpawnTime: ufoDeadline },
+    spawner: { nextSpawnTick: 240, group: { getChildren: () => [] } },
+    ufo: { active: false, nextSpawnTick: ufoDeadlineTick },
   });
   return {
     scene,
-    update(now, toggle = false) {
-      scene.time.now = now;
+    update(deltaMs, toggle = false) {
       pauseRequested = toggle;
-      scene.update(now, 0);
+      scene.update(0, deltaMs);
     },
   };
 }
 
-test('pause preserves obstacle and UFO cooldowns across repeated pauses', () => {
-  const { scene, update } = pauseScene(3000);
-  update(1000, true);
-  update(6000);
-  assert.equal(scene.spawner.nextSpawnTime, 2000);
-  update(6000, true);
-  assert.equal(scene.spawner.nextSpawnTime - scene.time.now, 1000);
-  assert.equal(scene.ufo.nextSpawnTime - scene.time.now, 2000);
-  assert.equal(scene.pauseStartedAt, null);
-
-  update(6500, true);
-  update(8500, true);
-  assert.equal(scene.spawner.nextSpawnTime - scene.time.now, 500);
-  assert.equal(scene.ufo.nextSpawnTime - scene.time.now, 1500);
+test('pause freezes the gameplay clock so cooldowns do not elapse', () => {
+  const { scene, update } = pauseScene(300);
+  // Pause on; simulated wall-clock passes but no steps run, so tick freezes.
+  update(0, true);
+  assert.equal(scene.paused, true);
+  // Mirror of GameScene.step()'s clock: the stub advances tick like a step would.
+  let steps = 0;
+  scene.step = () => { steps++; scene.tick++; };
+  update(5000);
+  update(5000);
+  assert.equal(steps, 0);
+  assert.equal(scene.tick, 120);
+  assert.equal(scene.spawner.nextSpawnTick, 240);
+  assert.equal(scene.ufo.nextSpawnTick, 300);
+  // No pausedMs fix-up exists any more: resume and the remaining cooldowns
+  // are simply deadline minus tick.
+  update(0, true);
+  assert.equal(scene.paused, false);
+  assert.equal(scene.spawner.nextSpawnTick - scene.tick, 120);
+  assert.equal(scene.ufo.nextSpawnTick - scene.tick, 180);
+  // Post-resume frames advance the clock again: tick tracks steps exactly,
+  // so the remaining cooldowns shrink by exactly the steps run.
+  update(100);
+  update(100);
+  assert.ok(steps > 0);
+  assert.equal(scene.tick, 120 + steps);
+  assert.equal(scene.spawner.nextSpawnTick - scene.tick, 240 - scene.tick);
+  assert.equal(scene.ufo.nextSpawnTick - scene.tick, 300 - scene.tick);
 });
 
 test('pause preserves the unscheduled UFO first-spawn sentinel', () => {
   const { scene, update } = pauseScene(0);
-  update(1000, true);
-  update(11000, true);
-  assert.equal(scene.ufo.nextSpawnTime, 0);
+  update(0, true);
+  update(30000);
+  update(0, true);
+  assert.equal(scene.ufo.nextSpawnTick, 0);
 });
 
 test('pause does not advance fixed-step gameplay', () => {
-  const { scene, update } = pauseScene(3000);
+  const { scene, update } = pauseScene(300);
   let steps = 0;
   scene.step = () => steps++;
-  update(1000, true);
-  scene.time.now = 5000;
-  scene.update(5000, 100);
+  update(0, true);
+  scene.update(0, 100);
   assert.equal(steps, 0);
   assert.equal(scene.stepAccumulator, 0);
+});
+
+test('spawn scheduling is tick-based with the same pacing as the old ms delays', () => {
+  globalThis.Phaser.Math = { Between: (lo, hi) => Math.floor((lo + hi) / 2) };
+  try {
+    const spawned = [];
+    const system = Object.assign(Object.create(SpawnSystem.prototype), {
+      isGameOver: () => false,
+      factory: {}, group: { children: { iterate() {} } },
+      spawnObstacle: () => spawned.push(true),
+      nextSpawnTick: 0,
+    });
+    system.start(0);
+    assert.equal(system.nextSpawnTick, TUNING.firstSpawnDelaySteps);
+    // Neutral speed 1: delayMs = 1500/0.8 = 1875 ms -> 112 steps (rounded).
+    system.update(TUNING.firstSpawnDelaySteps, 1, 1);
+    assert.equal(spawned.length, 0);
+    system.update(TUNING.firstSpawnDelaySteps + 1, 1, 1);
+    assert.equal(spawned.length, 1);
+    assert.equal(system.nextSpawnTick, TUNING.firstSpawnDelaySteps + 1 + 112);
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
+});
+
+test('UFO respawn delay is tick-based and the first-spawn sentinel still works', () => {
+  globalThis.Phaser.Math = {
+    Between: (lo) => lo,
+    Linear: (a, b) => b,
+    Distance: { Between: () => 1000 },
+  };
+  try {
+    const system = Object.assign(Object.create(UfoSystem.prototype), {
+      active: false, state: 'idle', timer: 0, hoverCount: 0,
+      targetX: 0, targetY: 0, attackCount: 0, nextSpawnTick: 0,
+      sprite: { x: 0, y: 0, setPosition() {}, setVisible() {} },
+      beam: { clear() {} },
+    });
+    // Below threshold: sentinel untouched.
+    system.update(10, UFO.scoreThreshold - 1, { x: 240 }, false);
+    assert.equal(system.nextSpawnTick, 0);
+    // Threshold reached at tick 10: scheduled, spawns on the next tick.
+    system.update(10, UFO.scoreThreshold, { x: 240 }, false);
+    assert.equal(system.nextSpawnTick, 10);
+    assert.equal(system.active, false);
+    system.update(11, UFO.scoreThreshold, { x: 240 }, false);
+    assert.equal(system.active, true);
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
 });
 
 test('warning and firing beams use the configured width and collision bounds', () => {
@@ -86,18 +149,35 @@ test('warning and firing beams use the configured width and collision bounds', (
         closePath() {}, fillPath() {},
       };
       const system = Object.assign(Object.create(UfoSystem.prototype), {
-        scene: { time: { now: 50 } },
         active: true, state, timer: 0,
         sprite: { x: 240, y: 200 }, beam,
         onBeamHit: () => hits++,
       });
-      system.update(2000, { x: 300 }, false);
+      // Tick 0 is in the flicker "on" half (0 % 12 < 6).
+      system.update(0, 2000, { x: 300 }, false);
       assert.deepEqual(points, [[160, 700], [320, 700]]);
       assert.equal(hits, state === 'firing' ? 1 : 0);
-      system.update(2000, { x: 321 }, false);
+      system.update(0, 2000, { x: 321 }, false);
       assert.equal(hits, state === 'firing' ? 1 : 0);
     }
   } finally {
     UFO.beamHalfWidth = originalWidth;
+  }
+});
+
+test('warning beam flicker follows the tick, not the wall clock', () => {
+  for (const [tick, visible] of [[0, true], [5, true], [6, false], [11, false], [12, true]]) {
+    let filled = false;
+    const beam = {
+      clear() {}, fillStyle() { filled = true; }, beginPath() {}, moveTo() {},
+      lineTo() {}, closePath() {}, fillPath() {},
+    };
+    const system = Object.assign(Object.create(UfoSystem.prototype), {
+      active: true, state: 'charging', timer: 0,
+      sprite: { x: 240, y: 200 }, beam,
+      onBeamHit: () => {},
+    });
+    system.update(tick, 2000, { x: 240 }, false);
+    assert.equal(filled, visible, `tick ${tick}`);
   }
 });
