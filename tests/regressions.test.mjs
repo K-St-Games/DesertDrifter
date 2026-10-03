@@ -191,9 +191,12 @@ test('warning beam flicker follows the tick, not the wall clock', () => {
 // The harness below drives the REAL GameScene.update()/step()/hitObstacle()
 // with stubbed rendering/audio/input and a minimal fake Arcade world. The fake
 // mirrors the Phaser 3.90 contract GameScene relies on: world.update(t, dtMs)
-// with the fixed dt performs exactly one integration of body velocities plus
-// exactly one pass over the registered overlap callbacks (cf. World.update /
-// World.step in phaser@3.90.0, physics/arcade/World.js).
+// syncs the body from the game object (preUpdate), integrates body velocities
+// and runs exactly one pass over the registered overlap callbacks, while
+// world.postUpdate() pushes body.position - prevFrame back to the game object
+// (Body.postUpdate). The game object is never written by update() itself
+// (cf. World.update / World.postUpdate in phaser@3.90.0,
+// physics/arcade/World.js).
 
 function steppedScene({ steerScript = () => ({ left: false, right: false }), obstacleAt = null } = {}) {
   globalThis.Phaser.Math = {
@@ -202,6 +205,7 @@ function steppedScene({ steerScript = () => ({ left: false, right: false }), obs
     Distance: { Between: () => 1000 },
   };
   const worldCalls = [];
+  const postUpdateCalls = [];
   const overlapFires = [];
   const colliders = [];
   const car = {
@@ -210,6 +214,17 @@ function steppedScene({ steerScript = () => ({ left: false, right: false }), obs
     setVelocityX(v) { this.velocityX = v; },
     setAngle(a) { this.angle = a; },
     setTint() {},
+  };
+  // WP-A4 review: one fake Arcade body for the car, mirroring the Phaser 3.90
+  // contract (Body.preUpdate syncs the body FROM the game object, Body.update
+  // integrates velocity into body.position, Body.postUpdate pushes
+  // body.position - prevFrame back to the game object). The game object is
+  // never written by update(); only postUpdate() moves it. Code that snapshots
+  // before postUpdate and restores afterwards (the old A4 bug) freezes
+  // velocity-driven sprites at their spawn X.
+  const carBody = {
+    position: { x: car.x, y: car.y },
+    prevFrame: { x: car.x, y: car.y },
   };
   const trailer = { x: 240, y: 500, angle: 0, setAngle(a) { this.angle = a; } };
   const scene = Object.assign(new GameScene(), {
@@ -263,12 +278,23 @@ function steppedScene({ steerScript = () => ({ left: false, right: false }), obs
       world: {
         update(time, deltaMs) {
           worldCalls.push([time, deltaMs]);
-          // One fixed integration, like Body.update with delta seconds.
-          car.x += car.velocityX * (deltaMs / 1000);
-          if (car.x > 480) car.x = 480; // collideWorldBounds, as on the car
-          if (car.x < 0) car.x = 0;
+          // preUpdate: sync the body from the game object, then integrate
+          // velocity into body.position (collideWorldBounds clamps the body).
+          carBody.position.x = car.x;
+          carBody.position.y = car.y;
+          carBody.prevFrame.x = car.x;
+          carBody.prevFrame.y = car.y;
+          carBody.position.x += car.velocityX * (deltaMs / 1000);
+          if (carBody.position.x > 480) carBody.position.x = 480; // as on the car
+          if (carBody.position.x < 0) carBody.position.x = 0;
           // Exactly one collider pass per call, like World.update/step.
           for (const cb of colliders) cb();
+        },
+        postUpdate() {
+          postUpdateCalls.push(1);
+          // Like Body.postUpdate: gameObject += body.position - prevFrame.
+          car.x += carBody.position.x - carBody.prevFrame.x;
+          car.y += carBody.position.y - carBody.prevFrame.y;
         },
       },
     },
@@ -284,7 +310,7 @@ function steppedScene({ steerScript = () => ({ left: false, right: false }), obs
     // create() registers one overlap per ship, both guarded by hitObstacle.
     colliders.push(fireIfTouching, fireIfTouching);
   }
-  return { scene, car, trailer, worldCalls, overlapFires, colliders, samples: () => scene.controls.sampleCalls };
+  return { scene, car, trailer, worldCalls, postUpdateCalls, overlapFires, colliders, samples: () => scene.controls.sampleCalls };
 }
 
 function runFrames(scene, totalSteps, frameMs) {
@@ -295,12 +321,13 @@ function runFrames(scene, totalSteps, frameMs) {
 }
 
 test('WP-B2: world.update is driven exactly once per step with the fixed dt', () => {
-  const { scene, worldCalls } = steppedScene();
+  const { scene, worldCalls, postUpdateCalls } = steppedScene();
   try {
     // Mixed frame cadence (60 Hz, 120 Hz, hitches): steps, not frames, drive physics.
     for (const dt of [16.6667, 8.3333, 8.3333, 33.3333, 8.3333, 100]) scene.update(0, dt);
     assert.ok(scene.tick > 0);
     assert.equal(worldCalls.length, scene.tick, 'one world update per gameplay step');
+    assert.equal(postUpdateCalls.length, scene.tick, 'one body->sprite sync per gameplay step');
     for (const [time, deltaMs] of worldCalls) {
       assert.equal(time, 0);
       assert.equal(deltaMs, TUNING.stepMs);
@@ -751,6 +778,33 @@ test('WP-B4: mute/pause/restart edges are handled once per frame', () => {
 // interpolation between the last two sim states. Sim/collision positions are
 // untouched: update() restores exact sim positions before stepping, and the
 // blend never writes physics bodies (so the key-0 overlay still tracks).
+// WP-A4 review: step() also calls world.postUpdate() inside the step so the
+// snapshot sees body->sprite sync; without it restoreSimPositions() discards
+// the scene POST_UPDATE sync every frame and velocity-driven X never
+// accumulates (the car sat at x=240). The fake world above models that
+// contract, so the steering test below fails against the old behaviour.
+
+test('WP-A4 review: 60 held-right ticks move the car ~200 px (no frozen X)', () => {
+  // Mirrors the browser repro (spawning disabled, ArrowRight held 60 ticks):
+  // with the old snapshot-before-sync bug the car stayed at x=240.
+  // NOTE: read SIM (renderCurr), not the game object: after update() the
+  // object holds the display blend, which legitimately lags the sim by up to
+  // one step (same reason the B2 tap checkpoints read renderCurr).
+  const { scene, car } = steppedScene({ steerScript: () => ({ left: false, right: true }) });
+  // Deterministic zero shake: the Between stub draws the low bound (-2),
+  // which would drag the off-road car; the browser draws mean ~0.
+  const between = globalThis.Phaser.Math.Between;
+  globalThis.Phaser.Math.Between = () => 0;
+  try {
+    runFrames(scene, 60, TUNING.stepMs);
+    const simX = scene.renderCurr.sprites.get(car).x;
+    assert.ok(Math.abs(simX - (240 + (60 * 200) / 60)) <= 0.01, `sim advances ~200 px in 60 ticks (got ${simX})`);
+    assert.ok(car.x >= 240 + 190, `display moved with the sim (dx=${car.x - 240})`);
+  } finally {
+    globalThis.Phaser.Math.Between = between;
+    delete globalThis.Phaser.Math;
+  }
+});
 
 function jitterScene() {
   // steppedScene() with a scrolling obstacle, like the real SpawnSystem:

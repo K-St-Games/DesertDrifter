@@ -358,6 +358,18 @@ export class GameScene extends Phaser.Scene {
     // integrate and test stale body positions (obstacle bodies, which carry no
     // Y velocity, would never move in Y and overlaps would never fire).
     this.physics.world.update(0, TUNING.stepMs);
+    // WP-A4 review: sync integrated bodies back to sprites inside the step.
+    // World.postUpdate applies body.position - prevFrame onto each game
+    // object (Body.postUpdate). Without this, the snapshot below holds the
+    // pre-physics positions for body-driven sprites, and the scene-level
+    // POST_UPDATE sync lands after the snapshot; restoreSimPositions() then
+    // discards it every frame, so body.preUpdate re-syncs the body from the
+    // stale sprite and velocity-driven X (car, tumbleweed drift) never
+    // accumulates — the car sat at x=240 forever. This mirrors the sanctioned
+    // World.singleStep() pattern (update + postUpdate, since 3.70.0). The call
+    // is idempotent per step: it consumes stepsLastFrame, so the scene-level
+    // POST_UPDATE pass becomes a no-op for our steps.
+    this.physics.world.postUpdate();
   }
 
   // WP-A0 probe: read-only sample of render-visible state. Only called when
@@ -387,7 +399,10 @@ export class GameScene extends Phaser.Scene {
   // The sim is never touched: step() still writes exact positions (which the
   // B4 tests assert), physics preUpdate syncs bodies from restored sim
   // positions, and only game-object render state is blended after the last
-  // step of a frame, then restored before the next frame's steps.
+  // step of a frame, then restored before the next frame's steps. Restore
+  // must never lose physics displacement: snapshots are taken after
+  // world.postUpdate has pushed body deltas into the sprites (see step()),
+  // so renderCurr always holds true sim including physics integration.
 
   // Every display-interpolated mover: sim-driven objects whose game-object
   // position is render state. Bodies are NOT included: the hitbox overlay
