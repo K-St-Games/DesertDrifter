@@ -4,6 +4,11 @@ Arcade desert-road game (Phaser 3.90) — drive, dodge, survive the UFO.
 
 Forked from [thomasmeston/DesertDrifter](https://github.com/thomasmeston/DesertDrifter) (the upstream author's live build is at <https://thomasmeston.github.io/DesertDrifter/>). This fork is being modernized; see [PLAN.md](PLAN.md).
 
+## Roadmap
+
+- [ISSUES.md](ISSUES.md): open bugs and improvements.
+- [STANDARDS_ALIGNMENT_PLAN.md](STANDARDS_ALIGNMENT_PLAN.md): the proposed work plan (stability fixes, one gameplay clock and RNG, small safeguards). It is a proposal; accepted architecture choices remain in [PLAN.md](PLAN.md).
+
 ## Run locally
 
 Serve the folder over HTTP (ES modules do not load from `file://`):
