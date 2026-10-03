@@ -1024,6 +1024,8 @@ function simScene(seedText) {
     Distance: { Between: (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1) },
   };
   const kids = [];
+  const simWorldCalls = [];
+  const simPostUpdateCalls = [];
   const group = {
     children: { iterate(fn) { [...kids].forEach(fn); } },
     getChildren: () => kids.filter((o) => o.active),
@@ -1100,16 +1102,25 @@ function simScene(seedText) {
         update(time, deltaMs) {
           // One fixed integration per step, like the real Arcade world: car
           // velocity plus behavior sideways drift on every obstacle.
+          // Positions land directly (no separate body), so postUpdate below
+          // is a recorded no-op; the steppedScene fake above models the full
+          // preUpdate/postUpdate body contract instead.
+          simWorldCalls.push([time, deltaMs]);
           const s = deltaMs / 1000;
           scene.car.x += scene.car.vx * s;
           if (scene.car.x > 480) scene.car.x = 480;
           if (scene.car.x < 0) scene.car.x = 0;
           for (const o of kids) if (o.active && o.vx) o.x += o.vx * s;
         },
+        postUpdate() {
+          simPostUpdateCalls.push(1);
+        },
       },
     },
   });
   scene.checkHighScore = () => { scene.highScoreCalls++; };
+  scene.simWorldCalls = simWorldCalls;
+  scene.simPostUpdateCalls = simPostUpdateCalls;
   scene.spawner = new SpawnSystem(scene, {
     factory,
     isGameOver: () => scene.gameOver,
@@ -1161,6 +1172,8 @@ test('WP-B5: advanceTime(1000) runs exactly 60 steps', () => {
     assert.deepEqual(seen[0], [151, 0]);
     assert.deepEqual(seen[59], [210, 59]);
     assert.equal(scene.tick, 210);
+    assert.equal(scene.simWorldCalls.length, 210, 'one world update per manual step');
+    assert.equal(scene.simPostUpdateCalls.length, 210, 'one body->sprite sync per manual step');
     // Mirrors update(): no steps while paused or after a crash.
     scene.paused = true;
     assert.equal(scene.advanceTime(1000), 0);
