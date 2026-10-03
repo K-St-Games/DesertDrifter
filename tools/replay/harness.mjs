@@ -34,6 +34,22 @@ export function createReplayScene(seedText) {
     Linear: (a, b, t) => a + (b - a) * t,
     Distance: { Between: (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1) },
   };
+  // WP-A4 review: fake Arcade bodies for the car and every velocity-driven
+  // obstacle, mirroring the Phaser 3.90 contract (Body.preUpdate syncs the
+  // body FROM the game object, Body.update integrates velocity into
+  // body.position, Body.postUpdate pushes body.position - prevFrame back).
+  // The old harness integrated directly in update(); the numbers are
+  // identical, but only this shape catches a missing postUpdate call: with
+  // the pre-A4-fix scene (snapshot before sync) the car froze at x=240 here.
+  const bodies = new Map();
+  const bodyOf = (o) => {
+    let b = bodies.get(o);
+    if (!b) {
+      b = { position: { x: o.x, y: o.y }, prevFrame: { x: o.x, y: o.y } };
+      bodies.set(o, b);
+    }
+    return b;
+  };
   const kids = [];
   const group = {
     children: { iterate(fn) { [...kids].forEach(fn); } },
@@ -111,12 +127,36 @@ export function createReplayScene(seedText) {
       add: { group: () => group },
       world: {
         update(time, deltaMs) {
-          // One fixed integration per step, like the real Arcade world.
+          // preUpdate: sync every velocity-driven body from its game object,
+          // then integrate (Phaser 3.90 World.update). Directly-moved sprites
+          // (trailer lerp, obstacle Y scroll, UFO) carry no velocity here;
+          // their game-object writes are picked up by the next sync.
+          const movers = [scene.car, ...kids.filter((o) => o.active && o.vx)];
+          for (const o of movers) {
+            const b = bodyOf(o);
+            b.position.x = o.x;
+            b.position.y = o.y;
+            b.prevFrame.x = o.x;
+            b.prevFrame.y = o.y;
+          }
           const s = deltaMs / 1000;
-          scene.car.x += scene.car.vx * s;
-          if (scene.car.x > 480) scene.car.x = 480;
-          if (scene.car.x < 0) scene.car.x = 0;
-          for (const o of kids) if (o.active && o.vx) o.x += o.vx * s;
+          const cb = bodyOf(scene.car);
+          cb.position.x += scene.car.vx * s;
+          if (cb.position.x > 480) cb.position.x = 480;
+          if (cb.position.x < 0) cb.position.x = 0;
+          for (const o of kids) if (o.active && o.vx) bodyOf(o).position.x += o.vx * s;
+        },
+        postUpdate() {
+          // Body.postUpdate: gameObject += body.position - prevFrame.
+          const cb = bodyOf(scene.car);
+          scene.car.x += cb.position.x - cb.prevFrame.x;
+          scene.car.y += cb.position.y - cb.prevFrame.y;
+          for (const o of [...kids]) {
+            const b = bodies.get(o);
+            if (!b) continue;
+            o.x += b.position.x - b.prevFrame.x;
+            o.y += b.position.y - b.prevFrame.y;
+          }
         },
       },
     },

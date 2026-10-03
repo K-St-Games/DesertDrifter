@@ -60,6 +60,11 @@ re-running the check (mutations reverted afterwards):
 - `TUNING.stepMs` 1000/60 → 1000/59 (`src/config.js`): check fails — car
   positions, `nextSpawnTick` countdowns and the crash tick (3372 → 3333)
   all shift (exit 1).
+- Removing the `world.postUpdate()` call from `step()` (WP-A4 review fix
+  reverted): check fails with 11 problems (exit 1) — without the
+  body→sprite sync the car never moves, so every checkpoint after the
+  steering taps diverges. The harness models the real preUpdate/postUpdate
+  body contract, which is what makes this audible.
 
 Both mutations are caught at the first affected checkpoint, so the check
 guards spawn balance and step timing as required.
