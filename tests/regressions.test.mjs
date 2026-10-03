@@ -7,6 +7,8 @@ const { GameScene } = await import('../src/scenes/GameScene.js');
 const { SpawnSystem } = await import('../src/systems/SpawnSystem.js');
 const { UfoSystem } = await import('../src/systems/UfoSystem.js');
 const { TUNING, UFO } = await import('../src/config.js');
+const { GameplayRng, createGameplayRng, readSeedParam } = await import('../src/sim/rng.js');
+const { applyBehavior } = await import('../src/behaviors.js');
 
 function pauseScene(ufoDeadlineTick) {
   let pauseRequested = false;
@@ -87,31 +89,31 @@ test('pause does not advance fixed-step gameplay', () => {
 });
 
 test('spawn scheduling is tick-based with the same pacing as the old ms delays', () => {
-  globalThis.Phaser.Math = { Between: (lo, hi) => Math.floor((lo + hi) / 2) };
-  try {
-    const spawned = [];
-    const system = Object.assign(Object.create(SpawnSystem.prototype), {
-      isGameOver: () => false,
-      factory: {}, group: { children: { iterate() {} } },
-      spawnObstacle: () => spawned.push(true),
-      nextSpawnTick: 0,
-    });
-    system.start(0);
-    assert.equal(system.nextSpawnTick, TUNING.firstSpawnDelaySteps);
-    // Neutral speed 1: delayMs = 1500/0.8 = 1875 ms -> 112 steps (rounded).
-    system.update(TUNING.firstSpawnDelaySteps, 1, 1);
-    assert.equal(spawned.length, 0);
-    system.update(TUNING.firstSpawnDelaySteps + 1, 1, 1);
-    assert.equal(spawned.length, 1);
-    assert.equal(system.nextSpawnTick, TUNING.firstSpawnDelaySteps + 1 + 112);
-  } finally {
-    delete globalThis.Phaser.Math;
-  }
+  // WP-B3: spawn jitter draws from the injected gameplay RNG (midpoint stub),
+  // not Phaser.Math.
+  const spawned = [];
+  const system = Object.assign(Object.create(SpawnSystem.prototype), {
+    isGameOver: () => false,
+    factory: {}, group: { children: { iterate() {} } },
+    rng: { int: (lo, hi) => Math.floor((lo + hi) / 2) },
+    spawnObstacle: () => spawned.push(true),
+    nextSpawnTick: 0,
+  });
+  system.start(0);
+  assert.equal(system.nextSpawnTick, TUNING.firstSpawnDelaySteps);
+  // Neutral speed 1: delayMs = 1500/0.8 = 1875 ms -> 112 steps (rounded).
+  system.update(TUNING.firstSpawnDelaySteps, 1, 1);
+  assert.equal(spawned.length, 0);
+  system.update(TUNING.firstSpawnDelaySteps + 1, 1, 1);
+  assert.equal(spawned.length, 1);
+  assert.equal(system.nextSpawnTick, TUNING.firstSpawnDelaySteps + 1 + 112);
 });
 
 test('UFO respawn delay is tick-based and the first-spawn sentinel still works', () => {
+  // WP-B3: UFO target picks draw from the injected gameplay RNG. Linear and
+  // Distance stay on Phaser.Math (pure math, no randomness); Between is
+  // deliberately absent, so any gameplay draw from Phaser.Math would throw.
   globalThis.Phaser.Math = {
-    Between: (lo) => lo,
     Linear: (a, b) => b,
     Distance: { Between: () => 1000 },
   };
@@ -119,6 +121,7 @@ test('UFO respawn delay is tick-based and the first-spawn sentinel still works',
     const system = Object.assign(Object.create(UfoSystem.prototype), {
       active: false, state: 'idle', timer: 0, hoverCount: 0,
       targetX: 0, targetY: 0, attackCount: 0, nextSpawnTick: 0,
+      rng: { int: (lo) => lo },
       sprite: { x: 0, y: 0, setPosition() {}, setVisible() {} },
       beam: { clear() {} },
     });
@@ -210,6 +213,7 @@ function steppedScene({ steerScript = () => ({ left: false, right: false }), obs
   const trailer = { x: 240, y: 500, angle: 0, setAngle(a) { this.angle = a; } };
   const scene = Object.assign(new GameScene(), {
     tick: 0,
+    rng: createGameplayRng('step-test'),
     speed: TUNING.baseSpeed,
     score: 0,
     gameOver: false,
@@ -394,4 +398,185 @@ test('WP-B2: overlap callbacks run once per step and the crash guard handles re-
   } finally {
     delete globalThis.Phaser.Math;
   }
+});
+
+// --- WP-B3: gameplay RNG separate from cosmetic/audio ---
+//
+// One GameplayRng instance drives spawn picks, obstacle behaviors and UFO
+// targets in draw order; HUD shake, terrain shake and the music offset stay
+// on Math.random. SEED COMPATIBILITY: pre-B3 ?seed= replaced the global
+// Math.random (one shared stream), so the same seed text now produces a
+// different obstacle sequence — old seeds will NOT reproduce old runs.
+
+test('WP-B3: same seed gives the same gameplay sequence, different seeds differ', () => {
+  const seq = (seedText) => {
+    const rng = createGameplayRng(seedText);
+    return Array.from({ length: 50 }, (_, i) => (i % 2 ? rng.float() : rng.int(-100, 430)));
+  };
+  assert.deepEqual(seq('desert-7'), seq('desert-7'));
+  assert.notDeepEqual(seq('desert-7'), seq('desert-8'));
+});
+
+test('WP-B3: unseeded runs vary (seeded from Math.random when ?seed= is absent)', () => {
+  const realRandom = Math.random;
+  try {
+    Math.random = () => 0.1;
+    const a = createGameplayRng(null);
+    Math.random = () => 0.9;
+    const b = createGameplayRng(null);
+    assert.notEqual(a.state, b.state);
+    const seq = (rng) => Array.from({ length: 20 }, () => rng.int(1, 100));
+    assert.notDeepEqual(seq(a), seq(b));
+    // ?seed= parsing: absent flag -> null (unseeded); explicit text passes through.
+    assert.equal(readSeedParam(''), null);
+    assert.equal(readSeedParam('?seed='), '');
+    assert.equal(readSeedParam('?seed=desert-7'), 'desert-7');
+  } finally {
+    Math.random = realRandom;
+  }
+});
+
+test('WP-B3: RNG primitives stay in range', () => {
+  for (const rng of [createGameplayRng('bounds'), createGameplayRng()]) {
+    assert.ok(Number.isInteger(rng.state));
+    for (let i = 0; i < 200; i++) {
+      const f = rng.float();
+      assert.ok(f >= 0 && f < 1, 'float in [0, 1)');
+      const v = rng.int(1, 6);
+      assert.ok(v >= 1 && v <= 6, 'int inclusive');
+    }
+  }
+  const fixed = createGameplayRng('bounds');
+  for (let i = 0; i < 50; i++) assert.equal(fixed.int(5, 5), 5);
+});
+
+test('WP-B3: cosmetic/audio draws do not consume the gameplay stream', () => {
+  const gameplay = (withNoise) => {
+    const rng = createGameplayRng('music-timing');
+    const out = [];
+    for (let i = 0; i < 20; i++) {
+      out.push(rng.int(1, 100));
+      out.push(rng.float());
+      if (withNoise) {
+        // HUD shake, terrain shake, music start offset: Math.random only,
+        // firing at whatever time the audio finishes loading.
+        Math.random(); Math.random(); Math.random();
+      }
+    }
+    return out;
+  };
+  assert.deepEqual(gameplay(true), gameplay(false));
+});
+
+test('WP-B3: spawn and behavior draws share one stream; reset replays the run', () => {
+  const spawnWith = (rng, noise = false) => {
+    const recorded = [];
+    const system = Object.assign(Object.create(SpawnSystem.prototype), {
+      isGameOver: () => false,
+      factory: {
+        createInGroup: (group, type, x, y) => {
+          const entry = { type, x, y, vx: 0, av: 0 };
+          recorded.push(entry);
+          return {
+            setVelocityX(v) { entry.vx = v; },
+            setAngularVelocity(v) { entry.av = v; },
+          };
+        },
+      },
+      group: {},
+      rng,
+    });
+    for (let i = 0; i < 30; i++) {
+      system.spawnObstacle();
+      if (noise) { Math.random(); Math.random(); }
+    }
+    return recorded.map((e) => [e.type, e.x, e.vx, e.av]);
+  };
+  const rng = createGameplayRng('convoy');
+  const first = spawnWith(rng);
+  assert.equal(first.length, 30);
+  // Same seed, fresh stream: identical obstacle sequence (type, x, behavior velocities).
+  assert.deepEqual(spawnWith(createGameplayRng('convoy')), first);
+  // Interleaved cosmetic/audio timing changes nothing.
+  assert.deepEqual(spawnWith(createGameplayRng('convoy'), true), first);
+  // Reset (what restartGame does) replays the same run on the same instance.
+  rng.reset('convoy');
+  assert.deepEqual(spawnWith(rng), first);
+  // Different seed: different run.
+  assert.notDeepEqual(spawnWith(createGameplayRng('dust')), first);
+});
+
+test('WP-B3: UFO targets draw from the shared gameplay stream', () => {
+  const targets = (seedText) => {
+    const system = Object.assign(Object.create(UfoSystem.prototype), {
+      active: false, state: 'idle', timer: 0, hoverCount: 0,
+      targetX: 0, targetY: 0, attackCount: 0, nextSpawnTick: 0,
+      rng: createGameplayRng(seedText),
+      sprite: { x: 240, y: -100, setPosition(x, y) { this.x = x; this.y = y; }, setVisible() {} },
+      beam: { clear() {} },
+      onBeamHit() {},
+    });
+    globalThis.Phaser.Math = {
+      Linear: (a, b) => b,
+      Distance: { Between: () => 1000 },
+    };
+    try {
+      system.update(10, UFO.scoreThreshold, { x: 240 }, false); // schedule
+      system.update(11, UFO.scoreThreshold, { x: 240 }, false); // spawn: initial target
+      return [system.targetX, system.targetY];
+    } finally {
+      delete globalThis.Phaser.Math;
+    }
+  };
+  assert.deepEqual(targets('ufo-seed'), targets('ufo-seed'));
+  assert.notDeepEqual(targets('ufo-seed'), targets('ufo-other'));
+});
+
+test('WP-B3: restartGame resets the gameplay stream for replayability', () => {
+  const freshDraws = () => {
+    const rng = createGameplayRng('replay-seed');
+    return Array.from({ length: 5 }, () => rng.int(1, 1000));
+  };
+  const spawnerCalls = [];
+  const scene = Object.assign(new GameScene(), {
+    seedText: 'replay-seed',
+    rng: createGameplayRng('replay-seed'),
+    gameOver: true, score: 999, speed: 1.5, tick: 500, stepAccumulator: 3,
+    audio: { resetEngine() {} },
+    multiplierText: { setVisible() {}, setText() {} },
+    highScoreText: { setVisible() {} },
+    car: { clearTint() {}, setPosition() {} },
+    trailer: { clearTint() {}, setPosition() {} },
+    spawner: {
+      clear() { spawnerCalls.push('clear'); },
+      start(tick) { spawnerCalls.push(['start', tick]); },
+    },
+    ufo: { reset() {} },
+    physics: { resume() {} },
+    scoreText: { setText() {}, setStyle() {} },
+  });
+  // Mid-run consumption: the stream has advanced before the restart.
+  scene.rng.int(1, 1000);
+  scene.rng.int(1, 1000);
+  scene.restartGame();
+  assert.equal(scene.tick, 0);
+  assert.deepEqual(
+    Array.from({ length: 5 }, () => scene.rng.int(1, 1000)),
+    freshDraws(),
+  );
+  assert.deepEqual(spawnerCalls, ['clear', ['start', 0]]);
+});
+
+
+test('off-road movement is identical despite different cosmetic random draws', () => {
+  const run = (cosmeticValue) => {
+    const { scene, car, trailer } = steppedScene();
+    scene.rng = createGameplayRng('off-road');
+    car.x = 100;
+    trailer.x = 100;
+    globalThis.Phaser.Math.Between = () => cosmeticValue;
+    runFrames(scene, 30, TUNING.stepMs);
+    return { car: [car.x, car.y], trailer: [trailer.x, trailer.y], rng: scene.rng.state };
+  };
+  assert.deepEqual(run(-2), run(2));
 });
