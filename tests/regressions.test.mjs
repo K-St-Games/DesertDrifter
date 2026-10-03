@@ -310,6 +310,13 @@ test('WP-B2: car/trailer X after N steps is identical at 60 Hz and 120 Hz cadenc
   // 10-step steering tap (ticks 50..59): under the old render-driven physics
   // such a tap could integrate 0 or 1 extra frame-steps depending on render
   // phase; on the step-driven world it must be bit-identical.
+  // WP-A4: checkpoints read SIM positions (renderCurr), not game objects:
+  // after update() the objects hold the display blend, which legitimately
+  // differs by cadence (interpolation alpha), while the sim must not.
+  const simXY = (scene, o) => {
+    const s = scene.renderCurr && scene.renderCurr.sprites.get(o);
+    return s ? [s.x, s.y] : [o.x, o.y];
+  };
   const steerScript = (tick) => ({ left: false, right: tick >= 50 && tick <= 59 });
   const traces = {};
   for (const [label, frameMs] of [['60Hz', TUNING.stepMs], ['120Hz', TUNING.stepMs / 2]]) {
@@ -322,7 +329,7 @@ test('WP-B2: car/trailer X after N steps is identical at 60 Hz and 120 Hz cadenc
         while (scene.tick < 600) {
           scene.update(0, frameMs);
           if (next < checkpoints.length && scene.tick >= checkpoints[next]) {
-            trace[checkpoints[next]] = [car.x, trailer.x];
+            trace[checkpoints[next]] = [simXY(scene, car), simXY(scene, trailer)];
             next++;
           }
         }
@@ -336,12 +343,14 @@ test('WP-B2: car/trailer X after N steps is identical at 60 Hz and 120 Hz cadenc
   }
   delete globalThis.Phaser.Math;
   for (const n of [60, 300, 600]) {
-    assert.ok(Math.abs(traces['60Hz'][n][0] - traces['120Hz'][n][0]) <= 0.01, `car.x@${n} same`);
-    assert.ok(Math.abs(traces['60Hz'][n][1] - traces['120Hz'][n][1]) <= 0.01, `trailer.x@${n} same`);
+    assert.ok(Math.abs(traces['60Hz'][n][0][0] - traces['120Hz'][n][0][0]) <= 0.01, `car.x@${n} same`);
+    assert.ok(Math.abs(traces['60Hz'][n][0][1] - traces['120Hz'][n][0][1]) <= 0.01, `car.y@${n} same`);
+    assert.ok(Math.abs(traces['60Hz'][n][1][0] - traces['120Hz'][n][1][0]) <= 0.01, `trailer.x@${n} same`);
+    assert.ok(Math.abs(traces['60Hz'][n][1][1] - traces['120Hz'][n][1][1]) <= 0.01, `trailer.y@${n} same`);
   }
   // Tap math: 10 steps x 200 px/s / 60 = 33.333 px right of start, then the
   // trailer keeps converging; both cadences must agree exactly.
-  assert.ok(Math.abs(traces['60Hz'][60][0] - (240 + (10 * 200) / 60)) <= 0.01);
+  assert.ok(Math.abs(traces['60Hz'][60][0][0] - (240 + (10 * 200) / 60)) <= 0.01);
 });
 
 test('WP-B2: scripted crash happens on the same tick at 60 Hz and 120 Hz; pause freezes the world', () => {
@@ -709,6 +718,215 @@ test('WP-B4: mute/pause/restart edges are handled once per frame', () => {
     scene.controls = { sample: () => ({ steer: 0, speedDelta: 0, restart: true, pause: false, mute: false }) };
     scene.update(0, 100);
     assert.equal(restarts, 1);
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
+});
+
+// --- WP-A4: sprite jitter (ISSUE-4) ---
+//
+// Proven cause is (b): the fixed 60 Hz step runs 0, 1 or 2 times per rendered
+// frame, so at 120 Hz+ on-screen motion alternates 0/~2.2 px (WP-A0 measured
+// 1.09+-1.09 px/frame; a node model of the accumulator reproduces it and shows
+// integer rounding alone still fails the band). Fix: display-only render
+// interpolation between the last two sim states. Sim/collision positions are
+// untouched: update() restores exact sim positions before stepping, and the
+// blend never writes physics bodies (so the key-0 overlay still tracks).
+
+function jitterScene() {
+  // steppedScene() with a scrolling obstacle, like the real SpawnSystem:
+  // child.y += currentSpeed * 2 per step. Bodies start as copies of the
+  // sprite and must never be touched by the display blend.
+  const built = steppedScene();
+  const { scene } = built;
+  const kids = [];
+  const spawn = (y = -50) => {
+    const o = { x: 240, y, active: true, body: { x: 240, y } };
+    kids.push(o);
+    return o;
+  };
+  scene.spawner = {
+    update(tick, currentSpeed) {
+      for (const o of kids) if (o.active) o.y += currentSpeed * 2;
+    },
+    group: { getChildren: () => kids.filter((o) => o.active) },
+    clear() { kids.length = 0; },
+    start() {},
+  };
+  return { ...built, kids, spawn };
+}
+
+function driveFrames(scene, ticks, frameMs) {
+  // Run rendered frames until ticks gameplay steps ran; returns per-frame
+  // records: display y of the first obstacle, display roadY, renderAlpha.
+  const recs = [];
+  const guard = ticks * 20 + 10;
+  let n = 0;
+  const kidsOf = () => scene.spawner.group.getChildren();
+  while (scene.tick < ticks && n++ < guard) {
+    scene.update(0, frameMs);
+    const kids = kidsOf();
+    recs.push({
+      tick: scene.tick,
+      alpha: scene.renderAlpha,
+      dispY: kids.length ? kids[0].y : null,
+      roadY: scene.road.tilePositionY,
+    });
+  }
+  assert.equal(scene.tick, ticks, 'frame driver reached the target step count');
+  return recs;
+}
+
+test('WP-A4: interpolation factor stays in [0,1] and display deltas stay in band', () => {
+  for (const [label, frameMs] of [['60Hz', TUNING.stepMs], ['120Hz', TUNING.stepMs / 2], ['144Hz', 1000 / 144]]) {
+    const { scene, spawn } = jitterScene();
+    try {
+      spawn();
+      const recs = driveFrames(scene, 300, frameMs);
+      for (const r of recs) {
+        assert.ok(r.alpha >= 0 && r.alpha <= 1, `${label}: alpha ${r.alpha} in [0,1]`);
+      }
+      // Steady state only: interpolation has one step of display latency, so
+      // the first two rendered frames legitimately show ~0 movement.
+      const dys = [];
+      for (let i = 1; i < recs.length; i++) {
+        if (recs[i].tick >= 2) dys.push(recs[i].dispY - recs[i - 1].dispY);
+      }
+      const mean = dys.reduce((a, b) => a + b, 0) / dys.length;
+      assert.ok(mean > 0, `${label}: moves down on average`);
+      for (const d of dys) {
+        assert.ok(d >= 0.5 * mean && d <= 1.5 * mean, `${label}: per-frame dy ${d} within 0.5x-1.5x of ${mean}`);
+      }
+      // Same band for the road scroll: sprites move with the road, not
+      // against it (ISSUE-4 symptom).
+      const rds = [];
+      for (let i = 1; i < recs.length; i++) {
+        if (recs[i].tick >= 2) rds.push(recs[i - 1].roadY - recs[i].roadY);
+      }
+      const rmean = rds.reduce((a, b) => a + b, 0) / rds.length;
+      for (const d of rds) {
+        assert.ok(d >= 0.5 * rmean && d <= 1.5 * rmean, `${label}: per-frame road dy ${d} in band`);
+      }
+    } finally {
+      delete globalThis.Phaser.Math;
+    }
+  }
+});
+
+test('WP-A4: sim/collision positions are bit-identical across cadences', () => {
+  // Positions the physics step actually sees (recorded inside world.update,
+  // after the obstacle scroll but before any display write) must be exactly
+  // what the sim computes: any display-blend leakage is cadence-dependent
+  // and would show up here.
+  const runs = {};
+  for (const [label, frameMs] of [['60Hz', TUNING.stepMs], ['120Hz', TUNING.stepMs / 2], ['144Hz', 1000 / 144]]) {
+    const { scene, spawn } = jitterScene();
+    try {
+      const obstacle = spawn();
+      const seen = [];
+      const inner = scene.physics.world.update.bind(scene.physics.world);
+      scene.physics.world.update = (t, dt) => {
+        seen.push([scene.tick, scene.speed, obstacle.y]);
+        return inner(t, dt);
+      };
+      driveFrames(scene, 300, frameMs);
+      runs[label] = {
+        seen,
+        simRoadY: scene.renderCurr.roadY,
+        simObstacleY: scene.renderCurr.sprites.get(obstacle).y,
+      };
+    } finally {
+      delete globalThis.Phaser.Math;
+    }
+  }
+  delete globalThis.Phaser.Math;
+  assert.deepEqual(runs['120Hz'].seen, runs['60Hz'].seen, 'collision inputs identical at 120Hz');
+  assert.deepEqual(runs['144Hz'].seen, runs['60Hz'].seen, 'collision inputs identical at 144Hz');
+  assert.equal(runs['120Hz'].simRoadY, runs['60Hz'].simRoadY, 'sim road identical');
+  assert.equal(runs['120Hz'].simObstacleY, runs['60Hz'].simObstacleY, 'sim obstacle identical');
+  // Closed form: each tick advances the obstacle and the road by speed*2.
+  const { seen } = runs['60Hz'];
+  assert.equal(seen.length, 300);
+  let y = -50;
+  let roadY = 0;
+  for (const [, speed, oy] of seen) {
+    y += speed * 2;
+    roadY -= speed * 2;
+    assert.ok(Math.abs(oy - y) < 1e-9, 'obstacle sim follows speed*2 per tick');
+  }
+  assert.ok(Math.abs(runs['60Hz'].simObstacleY - y) < 1e-9);
+  assert.ok(Math.abs(runs['60Hz'].simRoadY - roadY) < 1e-9);
+});
+
+test('WP-A4: bodies are never touched by the display blend (overlay still tracks)', () => {
+  const { scene, spawn } = jitterScene();
+  try {
+    const obstacle = spawn();
+    const bodyBefore = JSON.parse(JSON.stringify(obstacle.body));
+    driveFrames(scene, 200, TUNING.stepMs / 2); // 120 Hz: every frame blends
+    assert.deepEqual(obstacle.body, bodyBefore, 'interpolation never writes bodies');
+    assert.notDeepEqual([obstacle.x, obstacle.y], [obstacle.body.x, obstacle.body.y],
+      'display legitimately differs from the (sim-true) body mid-frame');
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
+});
+
+test('WP-A4: spawn/destroy mid-run cannot poison the blend', () => {
+  const { scene, kids, spawn } = jitterScene();
+  try {
+    spawn();
+    driveFrames(scene, 60, TUNING.stepMs / 2);
+    // Spawn with no prev entry: renders at its exact sim position, no NaN.
+    const late = spawn(-50);
+    scene.update(0, TUNING.stepMs); // full-step frame: guaranteed >= 1 step
+    assert.ok(scene.tick > 60, 'a step ran with the late spawn present');
+    assert.ok(Number.isFinite(late.y), 'late spawn renders a finite position');
+    assert.ok(Math.abs(late.y - scene.renderCurr.sprites.get(late).y) <= 2.5,
+      'spawn without prev renders within one step of sim');
+    driveFrames(scene, 120, TUNING.stepMs / 2);
+    // Destroy: pruned from the snapshot, no stale writes, no throw.
+    late.active = false;
+    kids.splice(kids.indexOf(late), 1);
+    scene.update(0, TUNING.stepMs / 2);
+    scene.update(0, TUNING.stepMs);
+    assert.equal(scene.renderCurr.sprites.has(late), false, 'destroyed obstacle pruned');
+  } finally {
+    delete globalThis.Phaser.Math;
+  }
+});
+
+test('WP-A4: restartGame clears interpolation state', () => {
+  const { scene, car, trailer, spawn } = jitterScene();
+  try {
+    Object.assign(car, {
+      clearTint() {}, setPosition(x, y) { this.x = x; this.y = y; },
+    });
+    Object.assign(trailer, {
+      clearTint() {}, setPosition(x, y) { this.x = x; this.y = y; },
+    });
+    Object.assign(scene, {
+      seedText: 'a4-restart',
+      rng: createGameplayRng('a4-restart'),
+      audio: { resetEngine() {}, updateEngineSpeed() {}, updateUfo() {} },
+      highScoreText: { setVisible() {} },
+      scoreText: { setText() {}, setStyle() {} },
+      ufo: { active: false, state: 'idle', update() {}, reset() {} },
+    });
+    spawn();
+    driveFrames(scene, 60, TUNING.stepMs / 2);
+    assert.ok(scene.renderCurr !== null, 'interpolation state built up');
+    scene.gameOver = true;
+    scene.restartGame();
+    assert.equal(scene.renderPrev, null, 'prev cleared');
+    assert.equal(scene.renderCurr, null, 'curr cleared');
+    assert.equal(scene.renderAlpha, null, 'alpha cleared');
+    // Next frames rebuild cleanly from the reset positions.
+    driveFrames(scene, 60, TUNING.stepMs / 2);
+    assert.ok(scene.renderCurr !== null);
+    for (const [, p] of scene.renderCurr.sprites) {
+      assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y));
+    }
   } finally {
     delete globalThis.Phaser.Math;
   }
