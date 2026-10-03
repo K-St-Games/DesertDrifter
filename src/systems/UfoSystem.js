@@ -1,6 +1,6 @@
 // The UFO boss: approach -> lock on -> charge (warning beam) -> fire (deadly beam), three attacks, then leave.
 // Logic and timings are unchanged from the original game.js (frame-based timers).
-import { UFO } from '../config.js';
+import { TUNING, UFO } from '../config.js';
 
 export class UfoSystem {
   constructor(scene, { factory, onBeamHit }) {
@@ -14,7 +14,7 @@ export class UfoSystem {
     this.targetX = 0;
     this.targetY = 0;
     this.attackCount = 0;
-    this.nextSpawnTime = 0;
+    this.nextSpawnTick = 0;
 
     const ufo = factory.createSprite('ufo', -100, -100);
     ufo.setVisible(false);
@@ -25,16 +25,20 @@ export class UfoSystem {
     this.beam.setDepth(19);
   }
 
-  update(score, car, gameOver) {
-    const scene = this.scene;
+  // WP-B1: tick is the scene's gameplay clock (1 per step). Spawn, respawn,
+  // flicker and wobble all run on tick so pausing (tick freeze) suspends them
+  // and 60 Hz / 120 Hz+ displays behave identically.
+  update(tick, score, car, gameOver) {
     const ufo = this.sprite;
     const beam = this.beam;
 
     if (score >= UFO.scoreThreshold && !this.active && !gameOver) {
       // First time spawn check
-      if (this.nextSpawnTime === 0) this.nextSpawnTime = scene.time.now;
+      // Zero means the first spawn has not been scheduled yet (tick only
+      // equals 0 on the very first step, where tick > 0 is still false).
+      if (this.nextSpawnTick === 0) this.nextSpawnTick = tick;
 
-      if (scene.time.now > this.nextSpawnTime) {
+      if (tick > this.nextSpawnTick) {
         this.active = true;
         this.state = 'approaching';
         ufo.setPosition(car.x, -100);
@@ -59,7 +63,9 @@ export class UfoSystem {
         ufo.x = Phaser.Math.Linear(ufo.x, this.targetX, 0.02);
         ufo.y = Phaser.Math.Linear(ufo.y, this.targetY, 0.02);
 
-        ufo.angle = Math.sin(scene.time.now / 300) * 5; // Slow wobble
+        // Slow wobble: cosmetic, but driven by tick for determinism
+        // (was sin(time.now / 300); tick * stepMs elapses the same ms).
+        ufo.angle = Math.sin((tick * TUNING.stepMs) / 300) * 5;
 
         if (Phaser.Math.Distance.Between(ufo.x, ufo.y, this.targetX, this.targetY) < 30) {
           // Reached target
@@ -89,7 +95,8 @@ export class UfoSystem {
         this.timer++;
 
         beam.clear();
-        if (scene.time.now % 200 < 100) { // Flicker effect
+        // Flicker: beam visible for the first half of each 12-step (200 ms) period.
+        if (tick % UFO.flickerPeriodSteps < UFO.flickerOnSteps) {
           beam.fillStyle(0xffff00, 0.3); // Yellow
           beam.beginPath();
           beam.moveTo(ufo.x, ufo.y + 20);
@@ -143,8 +150,8 @@ export class UfoSystem {
           this.active = false;
           ufo.setVisible(false);
           this.state = 'idle';
-          // Return in 10-20 seconds
-          this.nextSpawnTime = scene.time.now + Phaser.Math.Between(...UFO.respawnMs);
+          // Return in 10-20 seconds (600-1200 steps)
+          this.nextSpawnTick = tick + Phaser.Math.Between(...UFO.respawnSteps);
         }
       }
     } else {
@@ -159,6 +166,6 @@ export class UfoSystem {
     this.beam.clear();
     this.state = 'idle';
     this.timer = 0;
-    this.nextSpawnTime = 0;
+    this.nextSpawnTick = 0;
   }
 }
