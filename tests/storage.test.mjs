@@ -76,3 +76,22 @@ test('submit() writes the versioned shape', () => {
     delete globalThis.localStorage;
   }
 });
+
+test('unsupported versions and unversioned objects recover to empty scores', () => {
+  for (const version of [undefined, 2]) {
+    stubStorage({ stored: JSON.stringify({ version, scores: [{ name: 'ABC', score: 2000 }] }) });
+    assert.deepEqual(new HighScoreManager().scores, []);
+  }
+  delete globalThis.localStorage;
+});
+
+test('loaded scores are sorted and capped before checking qualification', () => {
+  stubStorage({ stored: JSON.stringify(Array.from({ length: 12 }, (_, i) => ({ name: 'ABC', score: 1000 + i * 100 }))) });
+  const mgr = new HighScoreManager();
+  assert.equal(mgr.scores.length, 10);
+  assert.equal(mgr.scores[0].score, 2100);
+  assert.equal(mgr.scores[9].score, 1200);
+  assert.equal(mgr.qualifies(1250), true);
+  assert.equal(mgr.qualifies(1150), false);
+  delete globalThis.localStorage;
+});

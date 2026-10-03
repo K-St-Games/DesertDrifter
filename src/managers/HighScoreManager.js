@@ -6,7 +6,8 @@ const MIN_SCORE_TO_PROMPT = 1000;
 
 function sanitizeEntries(value) {
   if (!Array.isArray(value)) return [];
-  return value.filter((e) => e && typeof e.name === 'string' && Number.isFinite(e.score));
+  return value.filter((e) => e && typeof e.name === 'string' && Number.isFinite(e.score))
+    .sort((a, b) => b.score - a.score).slice(0, MAX_ENTRIES);
 }
 
 // Stored shape is { version: 1, scores: [...] }. Older builds stored a bare
@@ -28,7 +29,7 @@ function loadScores() {
     return [];
   }
   if (Array.isArray(parsed)) return sanitizeEntries(parsed);
-  if (parsed && Array.isArray(parsed.scores)) return sanitizeEntries(parsed.scores);
+  if (parsed && parsed.version === STORAGE_VERSION && Array.isArray(parsed.scores)) return sanitizeEntries(parsed.scores);
   return [];
 }
 
