@@ -16,7 +16,7 @@ Seed `replay-b6` with the input script in [`script.mjs`](script.mjs)
 | `run1` @ 2800 | 2800 | UFO active, `locking` (score crossed 2000) |
 | `run1` @ 2920 | 2920 | UFO `charging` (yellow warning beam, timer 106/180) |
 | `run1` @ 2995 | 2995 | UFO `firing` (green beam, still running) |
-| `crash` @ 2996 | 2996 | first firing step crashes the car (`game_over`) |
+| `crash` @ 2918 | 2918 | first firing step crashes the car (`game_over`) |
 | `restart` @ 0 | — | `restartGame()`: clock, score, RNG stream and spawner reset |
 | `run2` @ 60, 600 | 1–600 | post-restart run replays the opening identically |
 
@@ -33,6 +33,9 @@ The review correction moves terrain offsets into the gameplay RNG because
 those offsets change physics positions. This intentionally changes the seeded
 trajectory, subsequent random draws and the crash from tick 3372 to 2996.
 The golden snapshots were updated for that diagnosed change.
+
+Doubling `TUNING.scrollFactor` (2 -> 4, the post-playtest speed fix) moves the
+scroll, so the golden was regenerated and the crash moved from tick 2996 to 2918.
 
 ## Run the check
 

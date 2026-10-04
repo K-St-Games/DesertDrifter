@@ -15,7 +15,8 @@ _None. The four launch issues below all closed with the PR #9–#22 stack (merge
 - **Reported:** 2026-10-03
 - **Fixed in:** PR #14 (WP-A3) with measurement from PR #11 (WP-A0); merged 2026-10-03
 - **Symptom:** Overall game speed is lower than the original fork.
-- **Resolution (owner decision D1):** keep the 60 Hz pace — no `baseSpeed`/`speedIncrement` change. The original advanced the road once per rendered frame, so on a 120 Hz display it ran at 2x speed; this build runs the same 60 steps/s on every display.
+- **Reopened note (2026-10-03):** playtest on a ~120 Hz display: "speed is still way too slow". Superseded the resolution below: `TUNING.scrollFactor` 2 -> 4 (branch `fix/speed-2x`), matching the original on a 120 Hz display. Pending owner confirmation, then re-close.
+- **Resolution (owner decision D1, superseded):** keep the 60 Hz pace — no `baseSpeed`/`speedIncrement` change. The original advanced the road once per rendered frame, so on a 120 Hz display it ran at 2x speed; this build runs the same 60 steps/s on every display.
 - **Measurement (WP-A3):** analytic 30 s neutral: 2*sum(1+0.0001*k, k=1..1800) = 3924.2 px → 130.8 px/s; WP-A0 `simulate.mjs` reports 130.81 px/s at 60 Hz vs 130.84 px/s at 120 Hz (within 0.1%; target: 2%). Difficulty re-check: spawn delay `(1500/(speed*0.8))±100` (min 300 ms) tightens as speed rises, so raising the base speed would also spawn obstacles faster — left unchanged per D1, no balance change.
 - **Plan:** WP-A0 and WP-A3 in [STANDARDS_ALIGNMENT_PLAN.md](STANDARDS_ALIGNMENT_PLAN.md); needed owner decision D1 (answered: keep 60 Hz).
 
