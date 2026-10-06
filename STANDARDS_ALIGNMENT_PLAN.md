@@ -6,7 +6,7 @@ status_detail: "all work packages merged as PRs #9-#22 on 2026-10-03; owner deci
 owner: "K_St_Games Team"
 author: "Codex (assessment), revised by Claude for orchestration handoff"
 created: 2026-10-03
-last_updated: 2026-10-03
+last_updated: 2026-10-06
 kind: plan
 parent: "PLAN.md"
 supersedes: "STANDARDS_ALIGNMENT_RECOMMENDATIONS.md (never committed)"
@@ -228,3 +228,7 @@ Short list for the owner to carry to the kit repo separately (not part of this p
 ## 9. Refresh conditions
 
 Revisit this plan after any of: Phase B lands, an owner decision changes scope, a gameplay or persistence change merges, or target-device evidence is recorded. Update the validated commit hash when it is refreshed.
+
+### 2026-10-06 refresh (project paused)
+
+Phase B landed (merged as PRs #15–#21 on 2026-10-03; validated at `main` = `bedb381`, PR #23). All work packages A0–A4, B1–B6, C1–C3 done; C4 declined by owner decision. Review fixes found after the first pass are also in: B2 call-site correction + boot smoke (`tools/smoke_boot.mjs`), A4 in-step body sync, real palette yellow, rebased seam. No gameplay or persistence change has merged since; no target-device evidence recorded yet (WP1.9 phone test still open). Resume with [PLAN.md](PLAN.md) Phase 4 release gates.
