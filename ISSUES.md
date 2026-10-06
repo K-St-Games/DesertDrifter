@@ -6,7 +6,18 @@ Status: `open` | `investigating` | `closed`
 
 ## Open
 
-_None. The four launch issues below all closed with the PR #9–#22 stack (merged 2026-10-03)._
+### ISSUE-5: Background music is heavy to decode (performance opportunity)
+- **Status:** open (deferred by owner decision, 2026-10-05; leave as is for now)
+- **Reported:** 2026-10-05
+- **Symptom / risk:** `assets/audio/8bit_radio.mp3` is 12 min 41 s, stereo, 250 kbps, 23 MB. Web Audio decodes the whole track to raw audio in memory: about 290 MB at a 48 kHz context. That is a likely cause of crashes or restarts on memory-limited phones, and it makes the first load slow. Not yet confirmed on a phone (PLAN WP1.9).
+- **Notes:** File size is not the lever; decoded size depends on duration x channels x sample rate. The track is also very quiet (peak about -25 dB, mean about -43 dB).
+- **Options (measured/estimated):**
+  - Recompress only (mono, 22 kHz, 48 kbps): file 4.5 MB (tested with ffmpeg), decoded about 146 MB. Smaller download, still heavy in memory.
+  - Cut a 2-3 minute seamless loop, mono (recommended): file about 1-2 MB, decoded about 35-50 MB. Loses the 11-minute variety; needs a clean loop point chosen by ear; drops the random-seek in `GameScene.js` (`randomStart`, up to 660 s). Normalise the volume at the same time.
+  - Stream via HTML5 audio instead of decoding: tiny memory, unchanged file, moderate change to `GameScene.js`; retest on a phone.
+- **Plan:** PLAN.md WP1.9 (phone test); pick an option based on that result.
+
+_No other open issues. The four launch issues below all closed with the PR #9–#22 stack (merged 2026-10-03)._
 
 ## Closed
 
