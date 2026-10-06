@@ -15,20 +15,15 @@ export const ROAD = {
 };
 
 // Simulation runs at a fixed 60 Hz step regardless of display refresh rate.
-// Owner decision D1 (WP-A3 / ISSUE-1): keep the 60 Hz pace. The original
-// scrolled `currentSpeed * 2` px once per rendered frame, so on a 120 Hz
-// display it ran ~2x as fast; this build runs the same 60 steps/s everywhere,
-// so baseSpeed/speedIncrement are intentionally NOT raised to match that.
-// Target pace (neutral input): 2 px/step * 60 steps/s = 120 px/s at base
-// speed, creeping with the ramp below to ~142 px/s at t=30 s; the 30 s
-// neutral average is ~130.8 px/s (2*sum(1+0.0001*k, k=1..1800) = 3924.2 px).
-// By fixed-step design the 60 Hz and 120 Hz+ cadences agree within 2%
-// (WP-A0 simulate.mjs: 130.81 vs 130.84 px/s). Verify with
-// `node tools/measure/simulate.mjs --cadence {60,120} --seconds 30` plus
-// `node tools/measure/summarise.mjs` (WP-A0 harness).
-// Difficulty note: SpawnSystem's delay `(1500/(speed*0.8))` tightens as speed
-// rises, so a faster base would also spawn obstacles faster; left unchanged
-// per D1 (no balance change in WP-A3).
+// ISSUE-1 (reopened after playtest): the original scrolled `currentSpeed * 2` px
+// once per rendered frame, so on a 120 Hz display it ran ~2x as fast as a 60 Hz
+// one. The first fix kept the 60 Hz pace and playtesting on a ~120 Hz display
+// found it "way too slow", so `scrollFactor` is now 4 (road and obstacles).
+// Pace (neutral input): 4 px/step * 60 steps/s = 240 px/s at base speed,
+// the same as the original on a 120 Hz display. Spawn delay stays in ms, so
+// obstacle spacing scales with the faster scroll exactly as it did originally.
+// Sideways velocities, UFO timers and scoring are unchanged.
+// Set scrollFactor back to 2 for the original's 60 Hz pace.
 // The Arcade world runs on the same clock: GameScene detaches the world's
 // render-driven update (ArcadePhysics.disableUpdate, not a World method) and
 // calls world.update(0, stepMs) once per step, which advances exactly one
@@ -50,7 +45,7 @@ export const TUNING = {
   minSpeed: 0.5, // floor for base + boost/brake (speed units)
   maxSpeed: 3, // ceiling for base + boost/brake (speed units)
   multiplierThreshold: 2, // currentSpeed >= this doubles pass-by points (speed units)
-  scrollFactor: 2, // px per step per speed unit; road and obstacles advance together
+  scrollFactor: 4, // px per step per speed unit; road and obstacles advance together (4 = the original on a 120 Hz display; 2 = original on 60 Hz)
 };
 
 // WP-C3: obstacle spawn pacing and travel, moved verbatim from SpawnSystem

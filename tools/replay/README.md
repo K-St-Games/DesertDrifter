@@ -13,12 +13,12 @@ Seed `replay-b6` with the input script in [`script.mjs`](script.mjs)
 | Phase | Ticks | What is exercised |
 |---|---|---|
 | `run1` @ 150, 600, 1800 | 1–1800 | obstacle spawning, pass-by scoring, RNG stream |
-| `run1` @ 2800 | 2800 | UFO active, `locking` (score crossed 2000) |
-| `run1` @ 2920 | 2920 | UFO `charging` (yellow warning beam, timer 106/180) |
-| `run1` @ 2995 | 2995 | UFO `firing` (green beam, still running) |
-| `crash` @ 2996 | 2996 | first firing step crashes the car (`game_over`) |
+| `run1` @ 2800 | 2800 | UFO active and `charging` (score 2350, past the 2000 threshold; yellow warning beam, timer 64/180) |
+| `crash` @ 2918 | 2918 | first firing step crashes the car (`game_over`, UFO `firing`) |
 | `restart` @ 0 | — | `restartGame()`: clock, score, RNG stream and spawner reset |
 | `run2` @ 60, 600 | 1–600 | post-restart run replays the opening identically |
+
+Checkpoints must fall before the crash tick (see `script.mjs`); one placed after it is never reached.
 
 The harness ([`harness.mjs`](harness.mjs)) builds the real `GameScene`
 with its real spawn/UFO/RNG systems and stubbed rendering/audio, drives it
@@ -34,13 +34,16 @@ those offsets change physics positions. This intentionally changes the seeded
 trajectory, subsequent random draws and the crash from tick 3372 to 2996.
 The golden snapshots were updated for that diagnosed change.
 
+Doubling `TUNING.scrollFactor` (2 -> 4, the post-playtest speed fix) moves the
+scroll, so the golden was regenerated and the crash moved from tick 2996 to 2918.
+
 ## Run the check
 
 ```bash
 node tools/replay/check.mjs
 ```
 
-Exit code is 0 when all 10 checkpoints are byte-identical (`REPLAY CHECK
+Exit code is 0 when all 8 checkpoints are byte-identical (`REPLAY CHECK
 PASSED`), 1 on any mismatch (`REPLAY CHECK FAILED` with the first differing
 field per checkpoint). Plain Node, no dependencies; nothing in this folder
 is imported by the game, so it can never become a runtime dependency.

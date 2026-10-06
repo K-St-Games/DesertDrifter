@@ -714,7 +714,7 @@ test('WP-B4: step consumes only the passed object (no live input reads)', () => 
     assert.equal(car.angle, 5);
     assert.equal(scene.tick, 1);
     assert.equal(scene.paused, false, 'step ignores edge flags');
-    assert.ok(Math.abs(scene.road.tilePositionY - (y0 - scene.speed * 2)) < 1e-9);
+    assert.ok(Math.abs(scene.road.tilePositionY - (y0 - scene.speed * TUNING.scrollFactor)) < 1e-9);
     scene.step({ steer: -1, speedDelta: -0.5, restart: true, pause: false, mute: false });
     assert.equal(car.velocityX, -200);
     assert.equal(car.angle, -5);
@@ -824,7 +824,7 @@ function jitterScene() {
   };
   scene.spawner = {
     update(tick, currentSpeed) {
-      for (const o of kids) if (o.active) o.y += currentSpeed * 2;
+      for (const o of kids) if (o.active) o.y += currentSpeed * TUNING.scrollFactor;
     },
     group: { getChildren: () => kids.filter((o) => o.active) },
     clear() { kids.length = 0; },
@@ -921,15 +921,15 @@ test('WP-A4: sim/collision positions are bit-identical across cadences', () => {
   assert.deepEqual(runs['144Hz'].seen, runs['60Hz'].seen, 'collision inputs identical at 144Hz');
   assert.equal(runs['120Hz'].simRoadY, runs['60Hz'].simRoadY, 'sim road identical');
   assert.equal(runs['120Hz'].simObstacleY, runs['60Hz'].simObstacleY, 'sim obstacle identical');
-  // Closed form: each tick advances the obstacle and the road by speed*2.
+  // Closed form: each tick advances the obstacle and the road by speed*scrollFactor.
   const { seen } = runs['60Hz'];
   assert.equal(seen.length, 300);
   let y = -50;
   let roadY = 0;
   for (const [, speed, oy] of seen) {
-    y += speed * 2;
-    roadY -= speed * 2;
-    assert.ok(Math.abs(oy - y) < 1e-9, 'obstacle sim follows speed*2 per tick');
+    y += speed * TUNING.scrollFactor;
+    roadY -= speed * TUNING.scrollFactor;
+    assert.ok(Math.abs(oy - y) < 1e-9, 'obstacle sim follows speed*scrollFactor per tick');
   }
   assert.ok(Math.abs(runs['60Hz'].simObstacleY - y) < 1e-9);
   assert.ok(Math.abs(runs['60Hz'].simRoadY - roadY) < 1e-9);
@@ -959,7 +959,7 @@ test('WP-A4: spawn/destroy mid-run cannot poison the blend', () => {
     scene.update(0, TUNING.stepMs); // full-step frame: guaranteed >= 1 step
     assert.ok(scene.tick > 60, 'a step ran with the late spawn present');
     assert.ok(Number.isFinite(late.y), 'late spawn renders a finite position');
-    assert.ok(Math.abs(late.y - scene.renderCurr.sprites.get(late).y) <= 2.5,
+    assert.ok(Math.abs(late.y - scene.renderCurr.sprites.get(late).y) <= TUNING.scrollFactor * TUNING.maxBaseSpeed * 1.1,
       'spawn without prev renders within one step of sim');
     driveFrames(scene, 120, TUNING.stepMs / 2);
     // Destroy: pruned from the snapshot, no stale writes, no throw.

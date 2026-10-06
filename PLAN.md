@@ -2,9 +2,9 @@
 title: "Desert Drifter — Enhancement Plan"
 description: "Phased plan to modernize the Desert Drifter fork by porting proven parts of HiOrbit_game and HiOrbit_redux, fixing foundation issues, and rebuilding the art on a shared palette. New content is deferred."
 status: active
-status_detail: "Phases 1-2 plus the standards-alignment plan landed (PRs #9-23, merged 2026-10-03); ISSUE-1..4 closed; main verified green. Paused 2026-10-06. Remaining: WP1.9 (phone test), WP1.11 (Pages + Play link), WP2.7 (hitbox playtest), WP4.5 (release). Phase 3 still deferred."
+status_detail: "Phases 1-2 landed; the standards-alignment plan is complete and archived (docs/archive/). main verified green (PRs #9-#24; speed re-fix in PR #25). Paused 2026-10-05. Remaining: WP1.9 (phone test), WP1.11 (Pages, backup-ref cleanup), WP2.7 (hitbox playtest), WP4.5 (release); ISSUE-5 (music decode cost) deferred. Phase 3 still deferred."
 owner: "K_St_Games Team"
-last_updated: 2026-10-06
+last_updated: 2026-10-05
 kind: plan
 ---
 
@@ -47,6 +47,8 @@ This plan does the opposite. It keeps this fork's no-build GitHub Pages hosting,
 
 ## 3. Baseline
 
+> Historical snapshot (2026-09-29/30), kept for context. Where it differs from the current code, the work-package status in section 7 and the README win.
+
 State at `main` @ `d1b6fe4`: the original tip `b9b3e5d` with `HiOrbit_Game.zip` purged from history on 2026-09-30 (O4). The original history stays in `refs/original/refs/heads/main` and on `origin` until the rewrite is force-pushed.
 
 - **Runtime (at `v0-prototype`):** `game.js` (706 lines, about 30 module-level globals) plus `index.html`. Phaser 3.55.2 from jsDelivr. Since PR1 the code lives in `src/` (see section 6) and Phaser is 3.90.0; line numbers below refer to `game.js` at `v0-prototype`. `.nojekyll` is committed, but GitHub Pages is not enabled on the fork (checked 2026-09-30: the Pages API returns 404 and `k-st-games.github.io/DesertDrifter` is a 404), so this repo has no live site yet. Remote: `K-St-Games/DesertDrifter`, a public GitHub fork of `thomasmeston/DesertDrifter`; its `main` was force-pushed on 2026-09-30 to drop the zip, so it no longer shares history with the parent.
@@ -72,6 +74,8 @@ State at `main` @ `d1b6fe4`: the original tip `b9b3e5d` with `HiOrbit_Game.zip` 
 | 10 | README "Play" link points at `thomasmeston.github.io` | [README.md](README.md) | Points at the original author's deployment; this fork has no Pages site yet | WP1.11 |
 | 11 | Phaser key capture swallows W/A/S/D, arrows and Space while the initials field has focus | `keyboard.addKey`/`createCursorKeys` capture by default | **Verified 2026-09-30:** `keydown` for those keys arrives with `defaultPrevented` true, so those letters cannot be typed as initials | WP2.3 |
 | 12 | The spawn timer is not reset on restart | `restartGame()` never touches `nextSpawnTime` | **Verified 2026-09-30:** the timer had expired 4.9 s earlier, so an obstacle spawns on the first frame of every restarted run (the first run gets a 2 s grace) | WP1.5 |
+
+Status as of 2026-10-05: issues 1–9, 11 and 12 are fixed (issue 1 was re-fixed after a playtest; see ISSUES.md ISSUE-1). Issue 10 stays open until GitHub Pages is enabled (WP1.11). Issue 3 is tracked as ISSUE-5 (deferred).
 
 ## 4. What to port and what to skip
 
@@ -103,20 +107,20 @@ Pages already works, and redux's TypeScript ports to plain JS by deleting type a
 **D3. Pin Phaser 3.90.0. (Accepted)**
 It is the version the redux code was built and verified against (both redux and `HiOrbit_game` lockfiles resolve to it), and it is the last Phaser 3 line. Later 3.x upgrades are a separate change.
 
-**D4. Fixed 60 Hz simulation step. (Proposed)**
-All motion and timers advance per step; rendering stays at display rate. Tuning constants carry over unchanged so the feel matches the baseline (WP0.3).
+**D4. Fixed 60 Hz simulation step. (Accepted; landed in PR2, extended by the standards-alignment work)**
+All motion and timers advance per step (gameplay timers count ticks); rendering stays at display rate, with display-only interpolation between steps. The tuning constants carried over, except the road and obstacle scroll: `TUNING.scrollFactor` is 4, not the original 2 px per frame, so the pace matches the original on a 120 Hz display (ISSUE-1, PR #25). Set it to 2 for the 60 Hz pace.
 
-**D5. Keep the DOM initials form. (Proposed)**
+**D5. Keep the DOM initials form. (Accepted; done)**
 `window.prompt` blocks the main thread and is ugly on mobile.
 
-**D6. Hitboxes are tuned by overlay and playtest, not inherited. (Proposed)**
+**D6. Hitboxes are tuned by overlay and playtest, not inherited. (Accepted; the playtest log, WP2.7, is still open)**
 Redux's ratios drifted difficulty relative to the fork (Appendix A.3). Targets are in WP2.7.
 
 **D7. All art shares one locked palette. (Accepted as an attempt, with a fallback)**
 Decided 2026-09-30. Sprites are rebuilt from the 1024 px originals, baked to their on-screen size (entity scale 1.0), quantized to one shared palette, and stored as indexed PNGs. A prototype (Appendix A.7) shows about 48 colours is a good starting point. The final palette is hand-reviewed and locked in WP1.8. Fallback if the result is not approved: ship the re-baked sprites without quantization.
 
 **D8. The music file stays as is. (Accepted)**
-Decided 2026-09-30. The BGM loads after the game starts so it never blocks play. WP1.9 measures start time and memory on a real phone; HTML5-audio streaming (a code-only change) is the contingency if it fails.
+Decided 2026-09-30. The BGM loads after the game starts so it never blocks play. WP1.9 measures start time and memory on a real phone; HTML5-audio streaming (a code-only change) is the contingency if it fails. Revisited 2026-10-05 as ISSUE-5: the decode cost is documented with options (mono loop, streaming) and deferred; the file is unchanged.
 
 ## 6. Target architecture
 
@@ -136,7 +140,7 @@ DesertDrifter/
 │   ├── main.js                 # Phaser.Game bootstrap; ?debug exposes window.game
 │   ├── config.js               # canvas, physics, tuning knobs, ROAD bounds
 │   ├── entities.js             # entity table (below)                             [WP2.1]
-│   ├── behaviors.js            # behavior functions by id (tumble, crawl, ...)    [Phase 3]
+│   ├── behaviors.js            # behavior functions by id (tumble, crawl, ...)
 │   ├── effects.js              # timed powerup effects + HUD chips                [Phase 3]
 │   ├── scenes/{PreloadScene,GameScene}.js
 │   ├── systems/{SpawnSystem,UfoSystem}.js
@@ -151,6 +155,8 @@ DesertDrifter/
     ├── audit_sprites.py        # verifies the output (Appendix A and B checks)
     └── fix_assets.py           # moved from repo root (rembg background removal)
 ```
+
+As built, the repo also has `src/sim/rng.js` (seeded gameplay RNG), `tests/` (`npm test`), `tools/replay/`, `tools/measure/`, `tools/smoke_boot.mjs`, `tools/validate_entities.mjs`, `package.json` (ESM marker and scripts, no dependencies) and `docs/archive/` (completed plans). The README layout table is the current map.
 
 Entity table shape:
 
@@ -189,7 +195,7 @@ Size key: **S** up to half a day, **M** about a day, **L** two to three days, in
 | WP0.1 | Tag `v0-prototype` at `d1b6fe4` (the purged original tip) | S | Tag exists and is pushed | ☑ pushed 2026-09-30 |
 | WP0.2 | Adopt the branch/PR flow above | S | First PR merged via the flow | ☑ branch `refactor/es-modules` |
 | WP0.3 | Capture baseline: speed, spawn cadence, UFO timing | S | Numbers recorded (Appendix D) | ☑ |
-| WP0.4 | Add `tools/audit_sprites.py` reproducing Appendix A; it also checks palette membership once WP1.8 lands | S | Script output matches Appendix A tables | ☐ |
+| WP0.4 | Add `tools/audit_sprites.py` reproducing Appendix A; it also checks palette membership once WP1.8 lands | S | Script output matches Appendix A tables | ☑ branch `feat/art-pipeline`; now also enforces palette, alpha, size and margin |
 
 ### Phase 1. Foundation
 
@@ -215,9 +221,9 @@ Size key: **S** up to half a day, **M** about a day, **L** two to three days, in
 |---|---|---|---|---|
 | WP1.7 | Art pipeline: move the 1024 px originals to `art/source/`; add `tools/build_sprites.py` (bake each sprite to its on-screen size by area averaging on premultiplied alpha, threshold alpha at 128, quantize to `art/palette.hex`, write indexed PNGs to `assets/sprites/`, write a before/after sheet); the armadillo is baked from its 64×65 PNG (its only source) with a 2 px margin | M | Same inputs give byte-identical outputs; every sprite and the road load at scale 1.0; art payload under 100 KB | ☑ branch `feat/art-pipeline` |
 | WP1.8 | Shared palette: turn the prototype candidate (Appendix A.7) into a reviewed, locked `art/palette.hex` (plus `.gpl`); you approve the before/after sheet | S–M | Mean colour shift 3 or less per sprite (OKLab ΔE×100); UFO LEDs (teal, purple, cyan), red tail lights and X mark, car orange trim and trailer teal chevron stay distinct; asphalt keeps at least 20 tones; the audit script fails on any off-palette pixel | ☑ branch `feat/art-pipeline` (the approved 48-colour candidate is committed as `art/palette.hex`; hand-pruning near-duplicates is optional) |
-| WP1.9 | Music: file unchanged (D8). Measure BGM start time and memory on a real phone; if it stalls or crashes, switch BGM to HTML5-audio streaming (code-only change) | S | Game interactive before the BGM finishes loading; no crash or long stall on a phone | ☐ |
+| WP1.9 | Music: file unchanged (D8). Measure BGM start time and memory on a real phone; if it stalls or crashes, switch BGM to HTML5-audio streaming (code-only change) | S | Game interactive before the BGM finishes loading; no crash or long stall on a phone | ☐ open; see ISSUE-5 for the measured decode cost and options |
 | WP1.10 | Input polish: 500 ms restart lockout after a crash; keyboard/touch restart parity | S | Holding a finger down at crash does not restart | ☑ branch `fix/correctness` |
-| WP1.11 | Repo hygiene: enable GitHub Pages on the fork (repository setting, owner action); delete the local backup `refs/original` and run `git gc` once the owner is happy with the purged history (the force-push is done); remove the two small `.bat` scripts, `assets/debug.txt`, `trailer_alt.png` and the 1024 px originals from `assets/` (they move to `art/source/`); move `fix_assets.py` to `tools/`; fix README Play link and add module-serving note | S | `git ls-files` contains only source, `art/`, and shipped assets | ◐ file cleanup, `fix_assets.py` move and backup-ref deletion done (verified 2026-10-06); remaining: enable Pages (owner), README Play link, `git gc` |
+| WP1.11 | Repo hygiene: enable GitHub Pages on the fork (repository setting, owner action); delete the local backup `refs/original` and run `git gc` once the owner is happy with the purged history (the force-push is done); remove the two small `.bat` scripts, `assets/debug.txt`, `trailer_alt.png` and the 1024 px originals from `assets/` (they move to `art/source/`); move `fix_assets.py` to `tools/`; fix README Play link and add module-serving note | S | `git ls-files` contains only source, `art/`, and shipped assets | ◐ file cleanup and the `fix_assets.py` move done; remaining: enable Pages (owner), add a Play link once the site is live, delete the local backup ref `refs/original` (still present on 2026-10-05) and run `git gc` |
 
 **Phase 1 exit:** parity plus fixes; section 10 checklist passes; own art and code (excluding Phaser and the BGM) 500 KB or less; game interactive before the BGM finishes loading; verified on the live Pages URL.
 
@@ -321,7 +327,7 @@ Deferred by decision on 2026-09-30. Nothing here is scheduled; the lists are kep
 | R2 | Fixed step changes the feel | Medium | Keep constants unchanged; compare to the WP0.3 baseline |
 | R3 | Hitbox rebalance shifts difficulty unexpectedly | Medium | Overlay plus playtest log; old values stay in git history |
 | R4 | New content, if revived, needs art that does not exist | Low now | Deferred with Phase 3; Appendix B spec keeps new art on the palette |
-| R5 | Music stays as is: about 27 MB total download and about 270 MB decoded on phones | Medium | BGM loads after start (WP1.4); measure on a phone (WP1.9); contingency is HTML5-audio streaming, no file change |
+| R5 | Music stays as is: about 27 MB total download and about 270 MB decoded on phones (tracked as ISSUE-5) | Medium | BGM loads after start (WP1.4); measure on a phone (WP1.9); contingency is HTML5-audio streaming, no file change |
 | R6 | Pages serves stale modules from cache | Low | `?v=` cache-bust; hard refresh during verification |
 | R7 | Scope creeps back into tooling | Medium | Non-goals list; gameplay justification required |
 | R8 | iOS Safari audio differences | Medium | Resume on first gesture; test on a real device |
@@ -489,7 +495,7 @@ Purpose: prove the module split and the Phaser upgrade change no behavior, and r
 
 **Newly verified facts.** Issue 1 (2x speed at 120 Hz), issue 6 (circle offsets are 0,0), issue 11 (key capture swallows W/A/S/D, arrows, Space in the initials field), issue 12 (spawn timer never reset on restart). Two harmless quirks kept as is: the multiplier banner keeps its old text while hidden, and the first-spawn deadline is 2,000 ms of absolute game time (both builds share this; a scene's clock is stale inside `create()`).
 
-**Status of the tooling.** The harness, the seeded-random helper and the comparison script live in the session scratch area; nothing is committed. If parity checks are wanted for later PRs, promote them to `tools/parity/` (WP4.4 covers automated smoke tests).
+**Status of the tooling.** The original-versus-refactor parity harness, its seeded-random helper and the comparison script lived in a session scratch area and were never committed. Later work added different committed tooling: `tools/replay/` (seeded replay regression check), `tools/measure/` (speed and jitter) and `tools/smoke_boot.mjs` (boot check). If a parity check against `v0-prototype` is ever wanted again, it would need rebuilding.
 
 ## Change log
 
@@ -502,4 +508,4 @@ Purpose: prove the module split and the Phaser upgrade change no behavior, and r
 - 2026-09-30 (PR4): data-driven core. `src/entities.js` table (files, points, spawn weights and zones, hitboxes, behaviors), `EntityFactory`, table-driven spawning, `behaviors.js`, `CollisionDebug` (key `0`), `?seed=`, `render_game_to_text`, guarded high-score parse, key capture suspended while the initials form is open. Issues 6, 8 and 11 fixed. Open in Phase 2: WP2.5 (UFO tunables), WP2.7 (hitbox balance needs a human playtest).
 - 2026-09-30 (PR5): UFO tunables in `config.js`, pause (`P`), persisted mute, crash shake, controls hint, README rewritten. Remaining work needs the owner: WP1.9 (phone test), WP1.11 (enable Pages, delete backup ref), WP2.7 (hitbox playtest), WP4.5 (release).
 - 2026-10-03: Standards-alignment stack merged (PRs #9–#22, plus review fixes): single tick clock, physics on the step driver, separate gameplay RNG, per-step input, render interpolation (ISSUE-4 cause proven), `advanceTime` + rich snapshot, replay golden, centralized tuning, storage safety, entity validation, measure harness; road centre yellow (`e8c32a`) and seamless 1024x999 tile (ISSUE-2/3); speed target documented per D1 (ISSUE-1). PR #23 closed ISSUE-1..4 and added `package.json` scripts. Remaining work needs the owner: WP1.9 (phone test), WP1.11 (enable Pages, Play link), WP2.7 (hitbox playtest), WP4.5 (`?v=` cache-bust, tag `v1.0.0`).
-- 2026-10-06: Project paused. Docs refreshed to landed state (README status, WP1.11/WP2.6/WP4.4 rows, this log). Resume order: Pages + live check → phone test → playtest/hitbox log → `v1.0.0`.
+- 2026-10-05: ISSUE-1 reopened after a playtest on a ~120 Hz display and re-fixed (`TUNING.scrollFactor` 2 -> 4, matches the original at 120 Hz; replay golden regenerated, crash tick 2918; PR #25). Music decode cost recorded as ISSUE-5 (deferred). Branches merged to `main` were deleted. Docs audit: README status, docs map and layout refreshed; the completed standards-alignment plan moved to `docs/archive/`; WP0.4, WP1.11, D4–D6, R5 and Appendix D corrected; tool docs updated. Project paused. Resume order: Pages + live check -> phone test -> hitbox playtest log -> `v1.0.0`.

@@ -43,7 +43,7 @@ Notes:
 ## Node-only fallback (no browser)
 
 `simulate.mjs` replicates the exact road/obstacle step math
-(`road.tilePositionY -= currentSpeed * 2`, `speed += 0.0001/step` capped at 1.8)
+(`road.tilePositionY -= currentSpeed * TUNING.scrollFactor`, `speed += 0.0001/step` capped at 1.8; the constants are imported from `src/config.js`, so it follows tuning changes)
 with neutral input through the same accumulator, at any frame cadence:
 
 ```bash
@@ -52,19 +52,23 @@ node tools/measure/simulate.mjs --cadence 120 --seconds 30 --out /tmp/opencode/m
 node tools/measure/summarise.mjs /tmp/opencode/measure_60hz.json
 ```
 
-## Baseline (current build, 2026-10-03)
+## Baseline (current build, 2026-10-05, `scrollFactor` 4)
 
 From `simulate.mjs`, 30 s, neutral input (no boost/brake). Analytic check:
-2·Σ(1+0.0001·k) over 1800 steps = 3924.2 px → 130.8 px/s; instantaneous rate
-rises from 120 px/s (t=0) to ~142 px/s (t=30 s) as base speed creeps 1.0→1.18.
+4·Σ(1+0.0001·k) over 1800 steps = 7848.4 px → 261.6 px/s; the instantaneous
+rate rises from 240 px/s (t=0) to ~284 px/s (t=30 s) as base speed creeps 1.0→1.18.
+(Before the post-playtest speed fix, `scrollFactor` was 2: 130.8 px/s. Set it back
+to 2 for the original's 60 Hz pace.)
 
 | Cadence | Road px/s | Steps/frame | Road px/frame (mean ± sd) | Sprite outside 0.5x–1.5x band |
 |---|---|---|---|---|
-| 60 Hz | 130.81 | always 1 | 2.18 ± 0.11 | 0/1680 |
-| 120 Hz | 130.84 | alternates 0/1 | 1.09 ± 1.09 | 0/3358 |
+| 60 Hz | 261.63 | always 1 | 4.36 ± 0.21 | 0/1679 |
+| 120 Hz | 261.68 | alternates 0/1 | 2.18 ± 2.19 | 0/3358 |
 
-Road speed matches within 0.1% across cadences (fixed-step accumulator works),
-but at 120 Hz the rendered scroll alternates 0 / ~2.2 px per frame — the uneven
-motion WP-A4 must smooth. Browser-measured numbers (with spawns, UFO, input)
-still to be recorded here once a Chromium is available; the scripts above are
-ready (`run_browser.mjs` exits 2 in environments without a browser).
+Road speed matches within 0.1% across cadences (the fixed-step accumulator works).
+`simulate.mjs` models the simulation only, so at 120 Hz it still shows the raw
+0 / ~4.4 px per-frame alternation. The shipped game smooths that on screen with
+display-only interpolation between the last two steps (WP-A4); to see the
+smoothed motion, measure in a browser with `run_browser.mjs`, which needs a
+Chromium. Browser-measured numbers with spawns, UFO and input have not been
+recorded here yet.

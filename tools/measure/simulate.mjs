@@ -52,9 +52,9 @@ for (let f = 0; f < totalFrames; f++) {
     steps++;
     stepsTotal++;
     speed = Math.min(speed + TUNING.speedIncrement, TUNING.maxBaseSpeed);
-    roadY -= speed * 2;
+    roadY -= speed * TUNING.scrollFactor;
     if (stepsTotal > TUNING.firstSpawnDelaySteps && obstacle === null) obstacle = { x: 240, y: -50 };
-    if (obstacle !== null) obstacle.y += speed * 2; // SpawnSystem.update: child.y += currentSpeed * 2
+    if (obstacle !== null) obstacle.y += speed * TUNING.scrollFactor; // SpawnSystem.update: child.y += currentSpeed * TUNING.scrollFactor
   }
   frames.push({
     t: Math.round(t),
