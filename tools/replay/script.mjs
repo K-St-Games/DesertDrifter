@@ -25,7 +25,9 @@ export function scriptedInput(tick) {
 }
 
 // Fixed-tick checkpoints in the first run (all mode 'running' except the crash).
-export const CHECKPOINTS_RUN1 = [150, 600, 1800, 2800, 2920, 2995];
+// The crash comes at EXPECTED_CRASH_TICK, so checkpoints must be earlier than it;
+// a later one would never be reached. Tick 2800 sees the UFO already charging.
+export const CHECKPOINTS_RUN1 = [150, 600, 1800, 2800];
 // The crash lands on the first firing step (mode 'game_over').
 export const EXPECTED_CRASH_TICK = 2918;
 // Upper bound for the crash hunt; the runner fails if no crash by this tick.

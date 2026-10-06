@@ -1,24 +1,26 @@
 ---
 title: "DesertDrifter Standards Alignment and Stability Plan"
 description: "Orchestration-ready plan: fix the four open gameplay issues, put the simulation under one controlled clock and RNG, and add small safeguards, without a rewrite or new content."
-status: landed
-status_detail: "all work packages merged as PRs #9-#22 on 2026-10-03; owner decisions answered (D1 keep 60Hz, D2 add e8c32a yellow, D3 Phase B approved, C4 declined); ISSUE-1..4 closed"
+status: archived
+status_detail: "archived 2026-10-05: all work packages merged as PRs #9-#22 (2026-10-03). Historical record; do not edit. Decision D1 (keep the 60 Hz pace) was later reversed after a playtest: TUNING.scrollFactor is now 4."
 owner: "K_St_Games Team"
 author: "Codex (assessment), revised by Claude for orchestration handoff"
 created: 2026-10-03
-last_updated: 2026-10-06
+last_updated: 2026-10-05
 kind: plan
-parent: "PLAN.md"
+parent: "../../PLAN.md"
 supersedes: "STANDARDS_ALIGNMENT_RECOMMENDATIONS.md (never committed)"
 ---
 
 # DesertDrifter Standards Alignment and Stability Plan
 
+> **Archived (2026-10-05).** This plan is complete and kept as a historical record. Current status lives in [README.md](../../README.md), [PLAN.md](../../PLAN.md) and [ISSUES.md](../../ISSUES.md). Two things changed after it landed: decision D1 (keep the 60 Hz pace) was reversed after a playtest (`TUNING.scrollFactor` is now 4; see ISSUE-1), and the file paths and PR numbers below are as they were on 2026-10-03.
+
 **Written by:** Codex (assessment, 2026-10-03), revised by Claude for orchestration handoff
 **Read by:** The orchestration agent and the owner
 **Validated by:** Static inspection of the code at commit `9516e9c` (`main` plus the UFO beam fix). No code was changed and no playthrough was run for this document. Every claim about code carries a file reference so the orchestrator can re-check it.
 
-This plan is a proposal until the owner answers the decisions in section 4. Accepted architecture choices stay in [PLAN.md](PLAN.md) (native ES modules, no build step, declarative entity tables, new content deferred). Open bugs are in [ISSUES.md](ISSUES.md).
+This plan was a proposal until the owner answered the decisions in section 4. Accepted architecture choices stay in [PLAN.md](../../PLAN.md) (native ES modules, no build step, declarative entity tables, new content deferred). Open bugs are in [ISSUES.md](../../ISSUES.md).
 
 ## 1. Goal and non-goals
 
@@ -229,6 +231,6 @@ Short list for the owner to carry to the kit repo separately (not part of this p
 
 Revisit this plan after any of: Phase B lands, an owner decision changes scope, a gameplay or persistence change merges, or target-device evidence is recorded. Update the validated commit hash when it is refreshed.
 
-### 2026-10-06 refresh (project paused)
+### 2026-10-05 refresh (project paused)
 
-Phase B landed (merged as PRs #15–#21 on 2026-10-03; validated at `main` = `bedb381`, PR #23). All work packages A0–A4, B1–B6, C1–C3 done; C4 declined by owner decision. Review fixes found after the first pass are also in: B2 call-site correction + boot smoke (`tools/smoke_boot.mjs`), A4 in-step body sync, real palette yellow, rebased seam. No gameplay or persistence change has merged since; no target-device evidence recorded yet (WP1.9 phone test still open). Resume with [PLAN.md](PLAN.md) Phase 4 release gates.
+Phase B landed (merged as PRs #15–#21 on 2026-10-03; validated at `main` = `bedb381`, PR #23). All work packages A0–A4, B1–B6, C1–C3 done; C4 declined by owner decision. Review fixes found after the first pass are also in: B2 call-site correction + boot smoke (`tools/smoke_boot.mjs`), A4 in-step body sync, real palette yellow, rebased seam. No gameplay or persistence change has merged since; no target-device evidence recorded yet (WP1.9 phone test still open). Resume with [PLAN.md](../../PLAN.md) Phase 4 release gates.
