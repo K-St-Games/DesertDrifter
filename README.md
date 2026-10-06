@@ -2,12 +2,18 @@
 
 Arcade desert-road game (Phaser 3.90) — drive, dodge, survive the UFO.
 
-Forked from [thomasmeston/DesertDrifter](https://github.com/thomasmeston/DesertDrifter) (the upstream author's live build is at <https://thomasmeston.github.io/DesertDrifter/>). This fork is being modernized; see [PLAN.md](PLAN.md).
+Forked from [thomasmeston/DesertDrifter](https://github.com/thomasmeston/DesertDrifter) (the upstream author's live build is at <https://thomasmeston.github.io/DesertDrifter/>). This fork has been modernized and stabilized; see [PLAN.md](PLAN.md).
+
+## Status (paused 2026-10-06)
+
+- Phases 1–2 plus the standards-alignment plan are landed on `main` (PRs #9–#23); [ISSUES.md](ISSUES.md) has no open issues.
+- `main` is verified green: `npm test` (54 tests), `node tools/replay/check.mjs`, `python3 tools/audit_sprites.py`.
+- No live site yet (Pages not enabled). To resume, in order: enable Pages and live-URL check → phone test (BGM startup/memory, PLAN WP1.9) → human playtest + hitbox log (WP2.7) → tag `v1.0.0` (WP4.5, needs the `?v=` cache-bust first).
 
 ## Roadmap
 
-- [ISSUES.md](ISSUES.md): open bugs and improvements.
-- [STANDARDS_ALIGNMENT_PLAN.md](STANDARDS_ALIGNMENT_PLAN.md): the proposed work plan (stability fixes, one gameplay clock and RNG, small safeguards). It is a proposal; accepted architecture choices remain in [PLAN.md](PLAN.md).
+- [ISSUES.md](ISSUES.md): closed launch issues (all four fixed).
+- [STANDARDS_ALIGNMENT_PLAN.md](STANDARDS_ALIGNMENT_PLAN.md): the landed stability plan (one gameplay clock/RNG/input, safeguards). Accepted architecture choices remain in [PLAN.md](PLAN.md).
 
 ## Run locally
 
@@ -38,7 +44,8 @@ Target pace (owner decision D1) is the 60 Hz pace: the road scrolls `currentSpee
 | `src/` | Game code (ES modules): `scenes/`, `systems/` (spawn, UFO), `input/`, `audio/`, `managers/`, `ui/`, `entities.js`, `config.js` |
 | `art/source/` | 1024 px original art; `art/palette.hex` is the shared 48-colour palette; `art/sprites.json` lists sprite sizes |
 | `assets/` | Runtime assets: generated indexed sprites in `sprites/`, music in `audio/` |
-| `tools/` | `build_sprites.py`, `audit_sprites.py` (Pillow, numpy, scipy), `fix_assets.py`, `replay/` (seeded replay check, plain Node) |
+| `tools/` | `build_sprites.py`, `audit_sprites.py` (Pillow, numpy, scipy), `fix_assets.py`, `replay/` (seeded replay check, plain Node), `measure/` (speed/jitter harness), `smoke_boot.mjs` (headless-Chromium boot smoke, needs `CHROME_PATH`), `validate_entities.mjs` (entity-table check) |
+| `package.json` | ESM marker + `npm` scripts (`test`, `test:replay`, `audit`, `validate`). No build, bundler, or dependencies. |
 
 ## Measure speed and jitter (WP-A0)
 
